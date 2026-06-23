@@ -1,0 +1,17 @@
+Proje Geliştirme Günlüğü — Akıllı Otopark Yönetim Sistemi
+
+2. Gün – Veri Tabanı İnşası, Backend Bağlantısı ve Güvenlik
+
+Tarih: 23 Haziran 2026
+
+Yaptığım Çalışmalar
+
+Sistemin hafızasını oluşturacak MSSQL veri tabanının kurulması ve tabloların oluşturulması.
+
+Node.js ve Express.js kullanılarak backend sunucusunun ayağa kaldırılması.
+
+Backend ile veri tabanı (MSSQL) arasında canlı bağlantının kurulması.
+
+Araç girişini simüle eden ilk API uç noktasının (Endpoint) yazılması.
+
+Projenin .gitignore ve Çevre Değişkenleri (.env) kurallarına uygun, güvenli bir şekilde GitHub'a yüklenmesi.
