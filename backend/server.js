@@ -1,6 +1,7 @@
 const express = require('express');
 const sql = require('mssql');
 const cors = require('cors');
+require('dotenv').config(); // Gizli şifreleri okumak için eklendi
 
 const app = express();
 app.use(cors());
@@ -11,7 +12,7 @@ const dbConfig = {
     port: 1433,
     database: 'AkilliOtoparkDB',
     user: 'sa',
-    password: '123451',
+    password: process.env.DB_PASSWORD, // Şifreyi artık .env dosyasından çekiyor!
     options: {
         encrypt: false,
         trustServerCertificate: true
