@@ -1,0 +1,17 @@
+Proje Geliştirme Günlüğü — Akıllı Otopark Yönetim Sistemi
+
+3. Gün – Çıkış İşlemleri, Tarife Algoritması ve API Testleri
+
+Tarih: 24 Haziran 2026
+
+Yaptığım Çalışmalar
+
+Sisteme giren araçların çıkış yapmasını sağlayacak POST metodlu /api/cikis endpoint'inin (API uç noktası) oluşturulması.
+
+İçeride kalınan sürenin (Giriş ve Çıkış saatleri arasındaki fark) matematiksel olarak hesaplanması.
+
+Zaman bazlı dinamik bir ücretlendirme tarifesinin kodlanması (İlk 1 saat 50 TL, sonrası her dakika 1 TL vb.).
+
+Veri tabanının güncellenmesi (Çıkış saati, Toplam Ücret yazılması ve park yerinin tekrar boşa çıkarılması).
+
+Thunder Client kullanılarak Backend API testlerinin (Endpoint Testing) manuel simülasyonlarının yapılması.
