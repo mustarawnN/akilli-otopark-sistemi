@@ -1,0 +1,15 @@
+Proje Geliştirme Günlüğü — Akıllı Otopark Yönetim Sistemi
+
+4. Gün – React ile Frontend Prototip Tasarımı ve Full-Stack Entegrasyonu
+
+Tarih: 25 Haziran 2026
+
+Yaptığım Çalışmalar
+
+Backend'de otoparkın anlık durumunu döndüren yeni bir API uç noktası (/api/durum) yazmak.
+
+Vite kullanarak modern ve hızlı bir React frontend (arayüz) projesi başlatmak.
+
+React arayüzü ile Node.js backend'ini birbirine bağlayarak (Full-Stack entegrasyonu) sistemi test araçlarından (Thunder Client) kurtarmak.
+
+Yönetim paneli için Tailwind CSS kullanarak anlaşılır, renk kodlu ve kullanıcı dostu bir arayüz tasarlamak.
