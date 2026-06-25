@@ -125,5 +125,21 @@ app.post('/api/cikis', async (req, res) => {
     }
 });
 
+// --- YENİ: OTOPARK ANLIK DURUM API'Sİ ---
+app.get('/api/durum', async (req, res) => {
+    try {
+        const pool = await poolPromise;
+        // Tüm park yerlerini A'dan Z'ye sıralı şekilde veritabanından çekiyoruz
+        const sonuc = await pool.request().query('SELECT * FROM ParkYerleri ORDER BY ParkYeriAdi');
+        
+        // React'a bu listeyi gönderiyoruz
+        res.json(sonuc.recordset);
+    } catch (err) {
+        console.error('Durum Çekme Hatası:', err);
+        res.status(500).json({ mesaj: 'Park yerleri getirilemedi', detay: err.message });
+    }
+});
+// ---------------------------------------
+
 // Portu 8080 olarak değiştirdik, 5000 portundaki Windows çakışmalarından kaçınıyoruz.
 app.listen(8080, () => console.log('🚀 Sunucu 8080 portunda calisiyor!'));
