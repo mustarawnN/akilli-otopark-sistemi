@@ -1,0 +1,17 @@
+Proje Geliştirme Günlüğü — Akıllı Otopark Yönetim Sistemi
+
+5. Gün – Admin Paneli (Login), Arayüz Geliştirmeleri 
+
+Tarih: 26 Haziran 2026
+
+Yaptığım Çalışmalar
+
+Sistemin herkese açık olmasını engelleyerek yetkisiz erişimi kapatmak (Kimlik Doğrulama / Authentication).
+
+Backend üzerinde kullanıcı adı ve şifre kontrolü yapan bir giriş (/api/login) endpoint'i yazmak.
+
+React tarafında koşullu render (Conditional Rendering) kullanarak sistemi şifreli bir giriş ekranı (Login Panel) ile koruma altına almak.
+
+Yönetim paneline "Aktif Biletler" adında bir açılır pencere (Modal) ekleyerek içerideki araçların detaylı listesini sunmak.
+
+Veritabanı ve sunucu arasındaki saat dilimi (Timezone) uyuşmazlıklarını gidermek.
