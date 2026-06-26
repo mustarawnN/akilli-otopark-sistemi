@@ -20,7 +20,6 @@ const dbConfig = {
 };
 
 // --- TEK BİR SAĞLAM BAĞLANTI (POOL) OLUŞTURUYORUZ ---
-// Bu sayede her istekte veritabanı yorulmayacak ve kilitlenmeyecek.
 const poolPromise = new sql.ConnectionPool(dbConfig)
     .connect()
     .then(pool => {
@@ -29,14 +28,14 @@ const poolPromise = new sql.ConnectionPool(dbConfig)
     })
     .catch(err => {
         console.error('❌ SQL BAĞLANTI HATASI! (SQL kapalı olabilir veya şifre yanlış):', err.message);
-        process.exit(1); // Veritabanı yoksa sunucuyu durdur, hatayı net görelim.
+        process.exit(1); 
     });
 
 // --- GİRİŞ API'Sİ ---
 app.get('/api/test-giris', async (req, res) => {
     console.log('📥 Yeni araç giriş isteği tetiklendi!');
     try {
-        const pool = await poolPromise; // Hazır olan bağlantıyı kullan
+        const pool = await poolPromise; 
         const bosYer = await pool.request().query('SELECT TOP 1 * FROM ParkYerleri WHERE DoluMu = 0');
 
         if (bosYer.recordset.length === 0) {
@@ -47,8 +46,10 @@ app.get('/api/test-giris', async (req, res) => {
         const yer = bosYer.recordset[0];
         const biletNo = 'BLT-' + Math.floor(1000 + Math.random() * 9000);
 
-        await pool.request().query(`UPDATE ParkYerleri SET DoluMu = 1, MevcutBiletNo = '${biletNo}' WHERE ParkYeriID = ${yer.ParkYeriID}`);
-        await pool.request().query(`INSERT INTO GirisCikisKayitlari (ParkYeriID, BiletNo) VALUES (${yer.ParkYeriID}, '${biletNo}')`);
+        // Tarihi yerel saat ile kaydediyoruz
+        await pool.request().query(`UPDATE ParkYerleri SET DoluMu = 1, MevcutBiletNo = '${biletNo}', SonGuncelleme = GETDATE() WHERE ParkYeriID = ${yer.ParkYeriID}`);
+        
+        await pool.request().query(`INSERT INTO GirisCikisKayitlari (ParkYeriID, BiletNo, GirisSaati) VALUES (${yer.ParkYeriID}, '${biletNo}', GETDATE())`);
 
         console.log(`✅ Araç başarıyla ${yer.ParkYeriAdi} alanına park edildi. Bilet No: ${biletNo}`);
         res.json({ durum: 'BASARILI', parkEdilenYer: yer.ParkYeriAdi, kesilenBilet: biletNo });
@@ -70,11 +71,14 @@ app.post('/api/cikis', async (req, res) => {
     }
 
     try {
-        const pool = await poolPromise; // Hazır olan bağlantıyı kullan
+        const pool = await poolPromise; 
         
-        // 1. İçeride bu bilet numarasına sahip, henüz çıkış YAPMAMIŞ bir araç var mı?
+        // KESİN ÇÖZÜM: Saatin sonuna zorla Türkiye saati (+03:00) damgasını vuruyoruz.
         const kayitSorgusu = await pool.request().query(`
-            SELECT * FROM GirisCikisKayitlari 
+            SELECT 
+                KayitID, 
+                CONVERT(varchar(19), GirisSaati, 126) + '+03:00' as GirisSaati
+            FROM GirisCikisKayitlari 
             WHERE BiletNo = '${biletNo}' AND CikisSaati IS NULL
         `);
 
@@ -86,8 +90,8 @@ app.post('/api/cikis', async (req, res) => {
         const kayit = kayitSorgusu.recordset[0];
 
         // 2. Çıkış saatini al ve Ücreti Hesapla
-        const girisSaati = new Date(kayit.GirisSaati);
-        const cikisSaati = new Date();
+        const girisSaati = new Date(kayit.GirisSaati); 
+        const cikisSaati = new Date(); 
         
         const farkMilisaniye = cikisSaati - girisSaati;
         const farkDakika = Math.ceil(farkMilisaniye / (1000 * 60)); 
@@ -97,17 +101,18 @@ app.post('/api/cikis', async (req, res) => {
             toplamUcret += (farkDakika - 60) * 1;
         }
 
-        // 3. Veri Tabanını Güncelle
+        // 3. Çıkış yapan aracın ücretini ve çıkış saatini kaydet
         await pool.request().query(`
             UPDATE GirisCikisKayitlari 
             SET CikisSaati = GETDATE(), ToplamUcret = ${toplamUcret}
             WHERE KayitID = ${kayit.KayitID}
         `);
 
+        // 4. ÇIKAN ARACIN KUTUSUNU BOŞALT VE SAATİNİ GÜNCELLE
         await pool.request().query(`
             UPDATE ParkYerleri 
-            SET DoluMu = 0, MevcutBiletNo = NULL 
-            WHERE ParkYeriID = ${kayit.ParkYeriID}
+            SET DoluMu = 0, MevcutBiletNo = NULL, SonGuncelleme = GETDATE() 
+            WHERE MevcutBiletNo = '${biletNo}'
         `);
 
         console.log(`✅ ${biletNo} numaralı aracın çıkışı yapıldı. Ücret: ${toplamUcret} TL`);
@@ -125,21 +130,50 @@ app.post('/api/cikis', async (req, res) => {
     }
 });
 
-// --- YENİ: OTOPARK ANLIK DURUM API'Sİ ---
+// --- OTOPARK ANLIK DURUM API'Sİ ---
 app.get('/api/durum', async (req, res) => {
     try {
         const pool = await poolPromise;
-        // Tüm park yerlerini A'dan Z'ye sıralı şekilde veritabanından çekiyoruz
-        const sonuc = await pool.request().query('SELECT * FROM ParkYerleri ORDER BY ParkYeriAdi');
-        
-        // React'a bu listeyi gönderiyoruz
+        // KESİN ÇÖZÜM: Saatin sonuna zorla Türkiye saati (+03:00) damgasını vuruyoruz.
+        const sonuc = await pool.request().query(`
+            SELECT 
+                ParkYeriID, 
+                ParkYeriAdi, 
+                DoluMu, 
+                MevcutBiletNo, 
+                CONVERT(varchar(19), SonGuncelleme, 126) + '+03:00' as SonGuncelleme 
+            FROM ParkYerleri 
+            ORDER BY ParkYeriAdi
+        `);
         res.json(sonuc.recordset);
     } catch (err) {
         console.error('Durum Çekme Hatası:', err);
         res.status(500).json({ mesaj: 'Park yerleri getirilemedi', detay: err.message });
     }
 });
-// ---------------------------------------
 
-// Portu 8080 olarak değiştirdik, 5000 portundaki Windows çakışmalarından kaçınıyoruz.
+// --- KULLANICI GİRİŞ (LOGIN) API'Sİ ---
+app.post('/api/login', async (req, res) => {
+    const { kullaniciAdi, sifre } = req.body;
+
+    try {
+        const pool = await poolPromise;
+        
+        const sorgu = await pool.request().query(`
+            SELECT * FROM Kullanicilar 
+            WHERE KullaniciAdi = '${kullaniciAdi}' AND SifreHash = '${sifre}'
+        `);
+
+        if (sorgu.recordset.length > 0) {
+            const kullanici = sorgu.recordset[0];
+            res.json({ durum: 'BASARILI', kullanici: kullanici.KullaniciAdi, rol: kullanici.Rol });
+        } else {
+            res.status(401).json({ mesaj: '❌ Kullanıcı adı veya şifre hatalı!' });
+        }
+    } catch (err) {
+        console.error('Login Hatası:', err);
+        res.status(500).json({ mesaj: 'Sunucu hatası', detay: err.message });
+    }
+});
+
 app.listen(8080, () => console.log('🚀 Sunucu 8080 portunda calisiyor!'));
