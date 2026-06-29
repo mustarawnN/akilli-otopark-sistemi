@@ -1,0 +1,15 @@
+Proje Geliştirme Günlüğü — Akıllı Otopark Yönetim Sistemi
+
+6. Gün – Canlı İstatistikler, Dashboard İnşası
+
+Tarih: 29 Haziran 2026
+
+Yaptığım Çalışmalar
+
+Yönetim panelini sadece işlem yapılan değil, verilerin analiz edildiği bir merkeze (Dashboard) dönüştürmek.
+
+Backend'de günlük toplam ciro, doluluk oranı ve giriş yapan araç sayısını anlık hesaplayacak yeni bir API yazmak.
+
+Frontend'de Tailwind CSS kullanarak modern istatistik kartları ve dinamik bir ilerleme çubuğu (Progress Bar) tasarlamak.
+
+Verilerin eşzamanlı olarak ekranda yenilenmesini sağlamak ve tarayıcı kaynaklı gecikmeleri engellemek.
