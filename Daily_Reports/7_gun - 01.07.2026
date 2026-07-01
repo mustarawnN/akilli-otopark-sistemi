@@ -1,0 +1,14 @@
+Proje Geliştirme Günlüğü — Akıllı Otopark Yönetim Sistemi
+
+7. Gün – UI/UX İyileştirmeleri: Heroicons Entegrasyonu ve Çıkış Onayı
+
+Tarih: 1 Temmuz 2026
+
+Yaptığım Çalışmalar
+
+Yönetim panelindeki görsel deneyimi (UI) daha profesyonel ve kurumsal bir çizgiye taşımak.
+
+Sistem genelinde kullanılan standart işletim sistemi emojileri yerine, modern ve ölçeklenebilir ikon setlerine (Heroicons) geçiş yapmak.
+
+Kullanıcı deneyimini (UX) artırmak adına, operatörün yanlışlıkla sistemden çıkış yapmasını engellemek için bir onay penceresi (Confirmation Modal) tasarlamak.
+
