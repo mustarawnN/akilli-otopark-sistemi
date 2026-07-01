@@ -1,4 +1,14 @@
 import React, { useState, useEffect } from 'react';
+import {
+  TruckIcon,
+  BanknotesIcon,
+  ChartBarIcon,
+  TicketIcon,
+  PlusCircleIcon,
+  ArrowRightOnRectangleIcon,
+  CheckCircleIcon,
+  XCircleIcon,
+} from '@heroicons/react/24/solid';
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -8,10 +18,14 @@ export default function App() {
   const [aktifKullanici, setAktifKullanici] = useState('');
 
   const [parkYerleri, setParkYerleri] = useState([]);
-  const [mesaj, setMesaj] = useState('');
+
+  // GÜNCELLENDİ: mesaj artık düz string değil, { tip, metin } objesi.
+  // tip: 'basarili' | 'hata' -> render sırasında doğru ikon otomatik seçiliyor.
+  const [mesaj, setMesaj] = useState(null);
+
   const [biletModalAcik, setBiletModalAcik] = useState(false);
-  
-  // İstatistik State'i
+  const [cikisOnayAcik, setCikisOnayAcik] = useState(false);
+
   const [istatistikler, setIstatistikler] = useState({
     GunlukCiro: 0, DoluAracSayisi: 0, ToplamKapasite: 10, BugunGirenArac: 0
   });
@@ -19,8 +33,8 @@ export default function App() {
   useEffect(() => {
     let interval;
     if (isLoggedIn) {
-      durumuVeIstatistigiGetir(); // İlk açılışta hemen çek
-      interval = setInterval(durumuVeIstatistigiGetir, 3000); // 3 saniyede bir güncelle
+      durumuVeIstatistigiGetir();
+      interval = setInterval(durumuVeIstatistigiGetir, 3000);
     }
     return () => { if (interval) clearInterval(interval); };
   }, [isLoggedIn]);
@@ -43,18 +57,26 @@ export default function App() {
         setLoginHata(data.mesaj);
       }
     } catch (error) {
-      setLoginHata('❌ Sunucuya bağlanılamadı.');
+      setLoginHata('Sunucuya bağlanılamadı.');
     }
   };
 
   const sistemdenCikisYap = () => {
-    setIsLoggedIn(false); setKullaniciAdi(''); setSifre(''); setParkYerleri([]); setMesaj(''); setBiletModalAcik(false);
+    setIsLoggedIn(false);
+    setKullaniciAdi('');
+    setSifre('');
+    setParkYerleri([]);
+    setMesaj(null);
+    setBiletModalAcik(false);
+    setCikisOnayAcik(false);
   };
 
-  // GÜNCELLENDİ: Önbellek (Cache) sorununu aşmak için Timestamp (Zaman Damgası) eklendi
+  const cikisOnayiIste = () => {
+    setCikisOnayAcik(true);
+  };
+
   const durumuVeIstatistigiGetir = async () => {
     try {
-      // Her istekte benzersiz bir sayı üreterek tarayıcının tembellik yapmasını (cache) engelliyoruz
       const zamanDamgasi = new Date().getTime();
 
       const resDurum = await fetch(`http://127.0.0.1:8080/api/durum?t=${zamanDamgasi}`, { cache: 'no-store' });
@@ -63,44 +85,42 @@ export default function App() {
       const resStat = await fetch(`http://127.0.0.1:8080/api/istatistik?t=${zamanDamgasi}`, { cache: 'no-store' });
       if (resStat.ok) setIstatistikler(await resStat.json());
     } catch (error) {
-      setMesaj('❌ Sunucu bağlantısı koptu!');
+      setMesaj({ tip: 'hata', metin: 'Sunucu bağlantısı koptu!' });
     }
   };
 
-  // GÜNCELLENDİ: Cache-Busting eklendi
   const araciIceriAl = async () => {
     try {
       const zamanDamgasi = new Date().getTime();
       const res = await fetch(`http://127.0.0.1:8080/api/test-giris?t=${zamanDamgasi}`, { cache: 'no-store' });
       const data = await res.json();
       if (data.durum === 'BASARILI') {
-        setMesaj(`✅ Araç Girdi: ${data.parkEdilenYer} (Bilet: ${data.kesilenBilet})`);
+        setMesaj({ tip: 'basarili', metin: `Araç Girdi: ${data.parkEdilenYer} (Bilet: ${data.kesilenBilet})` });
         durumuVeIstatistigiGetir();
       } else {
-        setMesaj(`❌ Hata: ${data.mesaj}`);
+        setMesaj({ tip: 'hata', metin: `Hata: ${data.mesaj}` });
       }
     } catch (error) {
-      setMesaj('❌ Giriş işlemi başarısız!');
+      setMesaj({ tip: 'hata', metin: 'Giriş işlemi başarısız!' });
     }
   };
 
   const araciCikar = async (biletNo) => {
     try {
-      // POST istekleri zaten cachelenmez, o yüzden direkt istek atıyoruz.
       const res = await fetch('http://127.0.0.1:8080/api/cikis', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ biletNo })
       });
       const data = await res.json();
-      if (data.durum === 'BAŞARILI') {
-        setMesaj(`💸 Çıkış Başarılı! Tahsil edilen ücret: ${data.toplamUcret}`);
-        durumuVeIstatistigiGetir(); // Hemen güncel ciroyu çek
+      if (data.durum === 'BASARILI') {
+        setMesaj({ tip: 'basarili', metin: `Çıkış Başarılı! Tahsil edilen ücret: ${data.toplamUcret}` });
+        durumuVeIstatistigiGetir();
       } else {
-        setMesaj(`❌ Hata: ${data.mesaj}`);
+        setMesaj({ tip: 'hata', metin: `Hata: ${data.mesaj}` });
       }
     } catch (error) {
-      setMesaj('❌ Çıkış işlemi başarısız!');
+      setMesaj({ tip: 'hata', metin: 'Çıkış işlemi başarısız!' });
     }
   };
 
@@ -116,7 +136,10 @@ export default function App() {
       <div className="min-h-screen bg-slate-800 flex items-center justify-center p-4">
         <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md">
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-extrabold text-blue-900 mb-2">🚗 Akıllı Otopark</h1>
+            <h1 className="text-3xl font-extrabold text-blue-900 mb-2 flex items-center justify-center gap-2">
+              <TruckIcon className="w-8 h-8 text-blue-700" />
+              Akıllı Otopark
+            </h1>
             <p className="text-slate-500">Sisteme erişmek için lütfen giriş yapın.</p>
           </div>
           <form onSubmit={girisYap} className="space-y-6">
@@ -128,7 +151,12 @@ export default function App() {
               <label className="block text-sm font-bold text-slate-700 mb-1">Şifre</label>
               <input type="password" className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-blue-500" value={sifre} onChange={(e) => setSifre(e.target.value)} required />
             </div>
-            {loginHata && <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm font-semibold text-center border">{loginHata}</div>}
+            {loginHata && (
+              <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm font-semibold text-center border flex items-center justify-center gap-2">
+                <XCircleIcon className="w-5 h-5" />
+                {loginHata}
+              </div>
+            )}
             <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg shadow-md">Giriş Yap</button>
           </form>
         </div>
@@ -136,37 +164,51 @@ export default function App() {
     );
   }
 
-  // Yüzdelik Doluluk Oranını Hesaplama
   const dolulukYuzdesi = (istatistikler.DoluAracSayisi / istatistikler.ToplamKapasite) * 100;
 
   // --- EKRAN 2: ANA YÖNETİM PANELİ ---
   return (
     <div className="min-h-screen bg-slate-100 p-8 font-sans text-slate-800 relative">
       <div className="max-w-6xl mx-auto">
-        
+
         {/* Üst Bar */}
         <div className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm mb-8 border-t-4 border-blue-600">
           <div>
-            <h1 className="text-2xl font-extrabold text-blue-900 tracking-tight">🚗 Otopark Yönetim Paneli</h1>
+            <h1 className="text-2xl font-extrabold text-blue-900 tracking-tight flex items-center gap-2">
+              <TruckIcon className="w-7 h-7 text-blue-700" />
+              Otopark Yönetim Paneli
+            </h1>
             <p className="text-sm text-slate-500 font-medium">Hoş geldin, <span className="text-blue-600 uppercase">{aktifKullanici}</span></p>
           </div>
-          <button onClick={sistemdenCikisYap} className="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2 px-6 rounded-lg transition-colors">Sistemden Çık</button>
+          <button onClick={cikisOnayiIste} className="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2 px-6 rounded-lg transition-colors flex items-center gap-2">
+            <ArrowRightOnRectangleIcon className="w-5 h-5" />
+            Sistemden Çık
+          </button>
         </div>
 
-        {mesaj && <div className="bg-white p-4 rounded-lg shadow-sm border-l-4 border-blue-500 mb-8 text-center text-lg font-medium">{mesaj}</div>}
+        {mesaj && (
+          <div className={`bg-white p-4 rounded-lg shadow-sm border-l-4 mb-8 flex items-center justify-center gap-2 text-lg font-medium ${mesaj.tip === 'hata' ? 'border-red-500 text-red-600' : 'border-blue-500 text-slate-700'}`}>
+            {mesaj.tip === 'hata'
+              ? <XCircleIcon className="w-6 h-6 text-red-500 shrink-0" />
+              : <CheckCircleIcon className="w-6 h-6 text-emerald-500 shrink-0" />}
+            <span>{mesaj.metin}</span>
+          </div>
+        )}
 
         {/* ========================================== */}
         {/* İSTATİSTİK KARTLARI (DASHBOARD)            */}
         {/* ========================================== */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          
+
           {/* 1. Kart: Günlük Ciro */}
           <div className="bg-white rounded-2xl shadow-sm p-6 border-l-4 border-emerald-500 flex items-center justify-between hover:shadow-md transition-shadow">
             <div>
               <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Günlük Toplam Ciro</p>
               <p className="text-3xl font-black text-slate-800">{istatistikler.GunlukCiro} <span className="text-lg text-slate-500 font-medium">TL</span></p>
             </div>
-            <div className="bg-emerald-100 p-4 rounded-full text-2xl">💵</div>
+            <div className="bg-emerald-100 p-4 rounded-full">
+              <BanknotesIcon className="w-7 h-7 text-emerald-600" />
+            </div>
           </div>
 
           {/* 2. Kart: Doluluk Oranı ve Progress Bar */}
@@ -176,11 +218,13 @@ export default function App() {
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Anlık Doluluk</p>
                 <p className="text-3xl font-black text-slate-800">{istatistikler.DoluAracSayisi} <span className="text-lg text-slate-500 font-medium">/ {istatistikler.ToplamKapasite}</span></p>
               </div>
-              <div className="bg-blue-100 p-4 rounded-full text-2xl">🚙</div>
+              <div className="bg-blue-100 p-4 rounded-full">
+                <TruckIcon className="w-7 h-7 text-blue-600" />
+              </div>
             </div>
             <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
-              <div 
-                className={`h-2.5 rounded-full transition-all duration-1000 ${dolulukYuzdesi >= 90 ? 'bg-red-500' : 'bg-blue-500'}`} 
+              <div
+                className={`h-2.5 rounded-full transition-all duration-1000 ${dolulukYuzdesi >= 90 ? 'bg-red-500' : 'bg-blue-500'}`}
                 style={{ width: `${dolulukYuzdesi}%` }}>
               </div>
             </div>
@@ -192,7 +236,9 @@ export default function App() {
               <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Bugün Giren Araç</p>
               <p className="text-3xl font-black text-slate-800">{istatistikler.BugunGirenArac}</p>
             </div>
-            <div className="bg-purple-100 p-4 rounded-full text-2xl">📈</div>
+            <div className="bg-purple-100 p-4 rounded-full">
+              <ChartBarIcon className="w-7 h-7 text-purple-600" />
+            </div>
           </div>
         </div>
         {/* ========================================== */}
@@ -200,10 +246,12 @@ export default function App() {
         {/* --- BUTONLAR --- */}
         <div className="flex justify-center gap-4 mb-10">
           <button onClick={araciIceriAl} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-transform hover:scale-105 flex items-center gap-2">
-            📥 Yeni Araç Al
+            <PlusCircleIcon className="w-5 h-5" />
+            Yeni Araç Al
           </button>
           <button onClick={() => setBiletModalAcik(true)} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-transform hover:scale-105 flex items-center gap-2">
-            🎫 Aktif Biletler
+            <TicketIcon className="w-5 h-5" />
+            Aktif Biletler
           </button>
         </div>
 
@@ -230,7 +278,10 @@ export default function App() {
         <div className="fixed inset-0 bg-slate-900 bg-opacity-60 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-fade-in-up">
             <div className="bg-indigo-900 p-5 text-white flex justify-between items-center">
-              <h2 className="text-xl font-bold flex items-center gap-2">🎫 İçerideki Araçlar</h2>
+              <h2 className="text-xl font-bold flex items-center gap-2">
+                <TicketIcon className="w-6 h-6" />
+                İçerideki Araçlar
+              </h2>
               <button onClick={() => setBiletModalAcik(false)} className="text-white hover:text-red-400 font-bold text-2xl leading-none">&times;</button>
             </div>
             <div className="p-6 max-h-[60vh] overflow-y-auto">
@@ -259,6 +310,40 @@ export default function App() {
             </div>
             <div className="bg-slate-100 p-4 text-right border-t border-slate-200">
               <button onClick={() => setBiletModalAcik(false)} className="bg-slate-600 hover:bg-slate-700 text-white font-bold py-2 px-6 rounded-lg transition-colors">Kapat</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- SİSTEMDEN ÇIKIŞ ONAY MODALI --- */}
+      {cikisOnayAcik && (
+        <div className="fixed inset-0 bg-slate-900 bg-opacity-60 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-fade-in-up">
+            <div className="bg-red-600 p-5 text-white flex items-center gap-2">
+              <ArrowRightOnRectangleIcon className="w-6 h-6" />
+              <h2 className="text-lg font-bold">Çıkış Onayı</h2>
+            </div>
+            <div className="p-6 text-center">
+              <p className="text-slate-700 font-medium text-base">
+                Sistemden çıkış yapmak istediğine emin misin?
+              </p>
+              <p className="text-slate-400 text-sm mt-2">
+                Oturumun sonlandırılacak, tekrar giriş yapman gerekecek.
+              </p>
+            </div>
+            <div className="bg-slate-100 p-4 flex justify-end gap-3 border-t border-slate-200">
+              <button
+                onClick={() => setCikisOnayAcik(false)}
+                className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold py-2 px-5 rounded-lg transition-colors"
+              >
+                İptal
+              </button>
+              <button
+                onClick={sistemdenCikisYap}
+                className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-5 rounded-lg transition-colors"
+              >
+                Evet, Çıkış Yap
+              </button>
             </div>
           </div>
         </div>

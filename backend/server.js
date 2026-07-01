@@ -1,7 +1,7 @@
 const express = require('express');
 const sql = require('mssql');
 const cors = require('cors');
-require('dotenv').config(); 
+require('dotenv').config();
 
 const app = express();
 app.use(cors());
@@ -12,7 +12,7 @@ const dbConfig = {
     port: 1433,
     database: 'AkilliOtoparkDB',
     user: 'sa',
-    password: process.env.DB_PASSWORD, 
+    password: process.env.DB_PASSWORD,
     options: {
         encrypt: false,
         trustServerCertificate: true
@@ -23,15 +23,15 @@ const dbConfig = {
 const poolPromise = new sql.ConnectionPool(dbConfig)
     .connect()
     .then(pool => {
-        console.log('✅ SQL Veritabanına başarıyla bağlanıldı!');
+        console.log('SQL Veritabanına başarıyla bağlanıldı.');
         return pool;
     })
     .catch(err => {
-        console.error('❌ SQL BAĞLANTI HATASI!:', err.message);
-        process.exit(1); 
+        console.error('SQL BAĞLANTI HATASI:', err.message);
+        process.exit(1);
     });
 
-// --- YENİ: İSTATİSTİK (DASHBOARD) API'Sİ ---
+// --- İSTATİSTİK (DASHBOARD) API'Sİ ---
 app.get('/api/istatistik', async (req, res) => {
     try {
         const pool = await poolPromise;
@@ -41,44 +41,38 @@ app.get('/api/istatistik', async (req, res) => {
             DECLARE @ToplamKapasite INT;
             DECLARE @BugunGirenArac INT;
 
-            -- Bugünkü toplam kazancı hesapla
-            SELECT @GunlukCiro = ISNULL(SUM(ToplamUcret), 0) 
-            FROM GirisCikisKayitlari 
+            SELECT @GunlukCiro = ISNULL(SUM(ToplamUcret), 0)
+            FROM GirisCikisKayitlari
             WHERE CAST(CikisSaati AS DATE) = CAST(GETDATE() AS DATE);
 
-            -- Dolu yerleri say
             SELECT @DoluAracSayisi = COUNT(*) FROM ParkYerleri WHERE DoluMu = 1;
-            
-            -- Otoparkın toplam kapasitesini al
             SELECT @ToplamKapasite = COUNT(*) FROM ParkYerleri;
-            
-            -- Bugün içeri giren toplam araç sayısını bul
-            SELECT @BugunGirenArac = COUNT(*) 
-            FROM GirisCikisKayitlari 
+
+            SELECT @BugunGirenArac = COUNT(*)
+            FROM GirisCikisKayitlari
             WHERE CAST(GirisSaati AS DATE) = CAST(GETDATE() AS DATE);
 
-            -- Hepsini tek bir paket yapıp React'a gönder
-            SELECT 
-                @GunlukCiro AS GunlukCiro, 
-                @DoluAracSayisi AS DoluAracSayisi, 
+            SELECT
+                @GunlukCiro AS GunlukCiro,
+                @DoluAracSayisi AS DoluAracSayisi,
                 @ToplamKapasite AS ToplamKapasite,
                 @BugunGirenArac AS BugunGirenArac;
         `);
         res.json(sorgu.recordset[0]);
     } catch (err) {
         console.error('İstatistik Çekme Hatası:', err);
-        res.status(500).json({ mesaj: 'İstatistikler getirilemedi', detay: err.message });
+        res.status(500).json({ durum: 'HATA', mesaj: 'İstatistikler getirilemedi', detay: err.message });
     }
 });
 
 // --- GİRİŞ API'Sİ ---
 app.get('/api/test-giris', async (req, res) => {
     try {
-        const pool = await poolPromise; 
+        const pool = await poolPromise;
         const bosYer = await pool.request().query('SELECT TOP 1 * FROM ParkYerleri WHERE DoluMu = 0');
 
         if (bosYer.recordset.length === 0) {
-            return res.status(400).json({ mesaj: 'Otopark dolu!' });
+            return res.status(400).json({ durum: 'HATA', mesaj: 'Otopark dolu!' });
         }
 
         const yer = bosYer.recordset[0];
@@ -87,44 +81,44 @@ app.get('/api/test-giris', async (req, res) => {
         await pool.request().query(`UPDATE ParkYerleri SET DoluMu = 1, MevcutBiletNo = '${biletNo}', SonGuncelleme = GETDATE() WHERE ParkYeriID = ${yer.ParkYeriID}`);
         await pool.request().query(`INSERT INTO GirisCikisKayitlari (ParkYeriID, BiletNo, GirisSaati) VALUES (${yer.ParkYeriID}, '${biletNo}', GETDATE())`);
 
-        res.json({ durum: 'BASARILI', parkEdilenYer: yer.ParkYeriAdi, kesilenBilet: biletNo });
+        res.json({ durum: 'BASARILI', mesaj: 'Araç girişi kaydedildi.', parkEdilenYer: yer.ParkYeriAdi, kesilenBilet: biletNo });
     } catch (err) {
-        res.status(500).json({ mesaj: 'İşlem sırasında hata oluştu', detay: err.message });
+        res.status(500).json({ durum: 'HATA', mesaj: 'İşlem sırasında hata oluştu', detay: err.message });
     }
 });
 
 // --- ÇIKIŞ API'Sİ ---
 app.post('/api/cikis', async (req, res) => {
     const { biletNo } = req.body;
-    if (!biletNo) return res.status(400).json({ mesaj: "Lütfen bir bilet numarası girin!" });
+    if (!biletNo) return res.status(400).json({ durum: 'HATA', mesaj: 'Lütfen bir bilet numarası girin!' });
 
     try {
-        const pool = await poolPromise; 
+        const pool = await poolPromise;
         const kayitSorgusu = await pool.request().query(`
             SELECT KayitID, CONVERT(varchar(19), GirisSaati, 126) + '+03:00' as GirisSaati
             FROM GirisCikisKayitlari WHERE BiletNo = '${biletNo}' AND CikisSaati IS NULL
         `);
 
         if (kayitSorgusu.recordset.length === 0) {
-            return res.status(404).json({ mesaj: "❌ İçeride bu bilete ait araç bulunamadı." });
+            return res.status(404).json({ durum: 'HATA', mesaj: 'İçeride bu bilete ait araç bulunamadı.' });
         }
 
         const kayit = kayitSorgusu.recordset[0];
-        const girisSaati = new Date(kayit.GirisSaati); 
-        const cikisSaati = new Date(); 
-        
+        const girisSaati = new Date(kayit.GirisSaati);
+        const cikisSaati = new Date();
+
         const farkMilisaniye = cikisSaati - girisSaati;
-        const farkDakika = Math.ceil(farkMilisaniye / (1000 * 60)); 
-        
-        let toplamUcret = 50; 
+        const farkDakika = Math.ceil(farkMilisaniye / (1000 * 60));
+
+        let toplamUcret = 50;
         if (farkDakika > 60) toplamUcret += (farkDakika - 60) * 1;
 
         await pool.request().query(`UPDATE GirisCikisKayitlari SET CikisSaati = GETDATE(), ToplamUcret = ${toplamUcret} WHERE KayitID = ${kayit.KayitID}`);
         await pool.request().query(`UPDATE ParkYerleri SET DoluMu = 0, MevcutBiletNo = NULL, SonGuncelleme = GETDATE() WHERE MevcutBiletNo = '${biletNo}'`);
 
-        res.json({ durum: "BAŞARILI", mesaj: "✅ Araç çıkışı yapıldı!", biletNo, icerideKalinanSure: `${farkDakika} dakika`, toplamUcret: `${toplamUcret} TL` });
+        res.json({ durum: 'BASARILI', mesaj: 'Araç çıkışı yapıldı.', biletNo, icerideKalinanSure: `${farkDakika} dakika`, toplamUcret: `${toplamUcret} TL` });
     } catch (err) {
-        res.status(500).json({ mesaj: 'Sunucu hatası', detay: err.message });
+        res.status(500).json({ durum: 'HATA', mesaj: 'Sunucu hatası', detay: err.message });
     }
 });
 
@@ -135,7 +129,7 @@ app.get('/api/durum', async (req, res) => {
         const sonuc = await pool.request().query(`SELECT ParkYeriID, ParkYeriAdi, DoluMu, MevcutBiletNo, CONVERT(varchar(19), SonGuncelleme, 126) + '+03:00' as SonGuncelleme FROM ParkYerleri ORDER BY ParkYeriAdi`);
         res.json(sonuc.recordset);
     } catch (err) {
-        res.status(500).json({ mesaj: 'Park yerleri getirilemedi' });
+        res.status(500).json({ durum: 'HATA', mesaj: 'Park yerleri getirilemedi' });
     }
 });
 
@@ -149,11 +143,11 @@ app.post('/api/login', async (req, res) => {
         if (sorgu.recordset.length > 0) {
             res.json({ durum: 'BASARILI', kullanici: sorgu.recordset[0].KullaniciAdi });
         } else {
-            res.status(401).json({ mesaj: '❌ Kullanıcı adı veya şifre hatalı!' });
+            res.status(401).json({ durum: 'HATA', mesaj: 'Kullanıcı adı veya şifre hatalı!' });
         }
     } catch (err) {
-        res.status(500).json({ mesaj: 'Sunucu hatası' });
+        res.status(500).json({ durum: 'HATA', mesaj: 'Sunucu hatası' });
     }
 });
 
-app.listen(8080, () => console.log('🚀 Sunucu 8080 portunda calisiyor!'));
+app.listen(8080, () => console.log('Sunucu 8080 portunda çalışıyor.'));
