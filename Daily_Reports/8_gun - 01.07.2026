@@ -1,0 +1,11 @@
+Proje Geliştirme Günlüğü — Akıllı Otopark Yönetim Sistemi
+
+8. Gün – UI/UX Bütünlüğü ve Araç Anlık Doluluk Çubuğu (Progress Bar)
+
+Tarih: 1 Temmuz 2026
+
+Yaptığım Çalışmalar
+
+Login (Giriş) sayfası ile ana yönetim paneli (Dashboard) arasındaki tema uyumsuzluğunu ve görsel kopukluğu gidermek.
+
+Dashboard'da bulunan "Anlık Doluluk" göstergesini sadece rakamsal bir değer olmaktan çıkarıp, görsel olarak doluluğu yansıtan dinamik bir yapıya kavuşturmak.
