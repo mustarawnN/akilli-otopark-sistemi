@@ -65,58 +65,104 @@ app.get('/api/istatistik', async (req, res) => {
     }
 });
 
-// --- GİRİŞ API'Sİ ---
-app.get('/api/test-giris', async (req, res) => {
+// --- ARAÇ GİRİŞ API'Sİ (PLAKA BAZLI) ---
+app.post('/api/giris', async (req, res) => {
+    const { plaka } = req.body;
+    if (!plaka || !plaka.trim()) {
+        return res.status(400).json({ durum: 'HATA', mesaj: 'Plaka bilgisi zorunludur!' });
+    }
+
+    const temizPlaka = plaka.trim().toUpperCase().replace(/\s+/g, ' ');
+    const plakaRegex = /^\d{2}\s?[A-PRSTUVYZ]{1,3}\s?\d{2,4}$/;
+    if (!plakaRegex.test(temizPlaka)) {
+        return res.status(400).json({ durum: 'HATA', mesaj: 'Geçersiz plaka formatı! Örn: 34 ABC 1234' });
+    }
+
     try {
         const pool = await poolPromise;
-        const bosYer = await pool.request().query('SELECT TOP 1 * FROM ParkYerleri WHERE DoluMu = 0');
 
+        // Aynı plaka zaten içeride mi?
+        const mevcutKontrol = await pool.request()
+            .input('plaka', sql.NVarChar, temizPlaka)
+            .query('SELECT TOP 1 * FROM ParkYerleri WHERE MevcutPlaka = @plaka AND DoluMu = 1');
+
+        if (mevcutKontrol.recordset.length > 0) {
+            return res.status(400).json({ durum: 'HATA', mesaj: 'Bu plakaya ait araç zaten içeride!' });
+        }
+
+        const bosYer = await pool.request().query('SELECT TOP 1 * FROM ParkYerleri WHERE DoluMu = 0');
         if (bosYer.recordset.length === 0) {
             return res.status(400).json({ durum: 'HATA', mesaj: 'Otopark dolu!' });
         }
 
         const yer = bosYer.recordset[0];
-        const biletNo = 'BLT-' + Math.floor(1000 + Math.random() * 9000);
 
-        await pool.request().query(`UPDATE ParkYerleri SET DoluMu = 1, MevcutBiletNo = '${biletNo}', SonGuncelleme = GETDATE() WHERE ParkYeriID = ${yer.ParkYeriID}`);
-        await pool.request().query(`INSERT INTO GirisCikisKayitlari (ParkYeriID, BiletNo, GirisSaati) VALUES (${yer.ParkYeriID}, '${biletNo}', GETDATE())`);
+        await pool.request()
+            .input('plaka', sql.NVarChar, temizPlaka)
+            .input('parkYeriId', sql.Int, yer.ParkYeriID)
+            .query(`UPDATE ParkYerleri SET DoluMu = 1, MevcutPlaka = @plaka, SonGuncelleme = GETDATE() WHERE ParkYeriID = @parkYeriId`);
 
-        res.json({ durum: 'BASARILI', mesaj: 'Araç girişi kaydedildi.', parkEdilenYer: yer.ParkYeriAdi, kesilenBilet: biletNo });
+        await pool.request()
+            .input('parkYeriId', sql.Int, yer.ParkYeriID)
+            .input('plaka', sql.NVarChar, temizPlaka)
+            .query(`INSERT INTO GirisCikisKayitlari (ParkYeriID, Plaka, GirisSaati) VALUES (@parkYeriId, @plaka, GETDATE())`);
+
+        res.json({
+            durum: 'BASARILI',
+            mesaj: 'Araç girişi kaydedildi.',
+            parkEdilenYer: yer.ParkYeriAdi,
+            plaka: temizPlaka
+        });
     } catch (err) {
         res.status(500).json({ durum: 'HATA', mesaj: 'İşlem sırasında hata oluştu', detay: err.message });
     }
 });
 
-// --- ÇIKIŞ API'Sİ ---
+// --- ARAÇ ÇIKIŞ API'Sİ (PLAKA BAZLI) ---
 app.post('/api/cikis', async (req, res) => {
-    const { biletNo } = req.body;
-    if (!biletNo) return res.status(400).json({ durum: 'HATA', mesaj: 'Lütfen bir bilet numarası girin!' });
+    const { plaka } = req.body;
+    if (!plaka) return res.status(400).json({ durum: 'HATA', mesaj: 'Lütfen bir plaka girin!' });
+
+    const temizPlaka = plaka.trim().toUpperCase();
 
     try {
         const pool = await poolPromise;
-        const kayitSorgusu = await pool.request().query(`
-            SELECT KayitID, CONVERT(varchar(19), GirisSaati, 126) + '+03:00' as GirisSaati
-            FROM GirisCikisKayitlari WHERE BiletNo = '${biletNo}' AND CikisSaati IS NULL
-        `);
+        const kayitSorgusu = await pool.request()
+            .input('plaka', sql.NVarChar, temizPlaka)
+            .query(`
+                SELECT KayitID, CONVERT(varchar(19), GirisSaati, 126) + '+03:00' as GirisSaati
+                FROM GirisCikisKayitlari WHERE Plaka = @plaka AND CikisSaati IS NULL
+            `);
 
         if (kayitSorgusu.recordset.length === 0) {
-            return res.status(404).json({ durum: 'HATA', mesaj: 'İçeride bu bilete ait araç bulunamadı.' });
+            return res.status(404).json({ durum: 'HATA', mesaj: 'İçeride bu plakaya ait araç bulunamadı.' });
         }
 
         const kayit = kayitSorgusu.recordset[0];
         const girisSaati = new Date(kayit.GirisSaati);
         const cikisSaati = new Date();
-
         const farkMilisaniye = cikisSaati - girisSaati;
         const farkDakika = Math.ceil(farkMilisaniye / (1000 * 60));
 
         let toplamUcret = 50;
         if (farkDakika > 60) toplamUcret += (farkDakika - 60) * 1;
 
-        await pool.request().query(`UPDATE GirisCikisKayitlari SET CikisSaati = GETDATE(), ToplamUcret = ${toplamUcret} WHERE KayitID = ${kayit.KayitID}`);
-        await pool.request().query(`UPDATE ParkYerleri SET DoluMu = 0, MevcutBiletNo = NULL, SonGuncelleme = GETDATE() WHERE MevcutBiletNo = '${biletNo}'`);
+        await pool.request()
+            .input('kayitId', sql.Int, kayit.KayitID)
+            .input('ucret', sql.Decimal(10, 2), toplamUcret)
+            .query(`UPDATE GirisCikisKayitlari SET CikisSaati = GETDATE(), ToplamUcret = @ucret WHERE KayitID = @kayitId`);
 
-        res.json({ durum: 'BASARILI', mesaj: 'Araç çıkışı yapıldı.', biletNo, icerideKalinanSure: `${farkDakika} dakika`, toplamUcret: `${toplamUcret} TL` });
+        await pool.request()
+            .input('plaka', sql.NVarChar, temizPlaka)
+            .query(`UPDATE ParkYerleri SET DoluMu = 0, MevcutPlaka = NULL, SonGuncelleme = GETDATE() WHERE MevcutPlaka = @plaka`);
+
+        res.json({
+            durum: 'BASARILI',
+            mesaj: 'Araç çıkışı yapıldı.',
+            plaka: temizPlaka,
+            icerideKalinanSure: `${farkDakika} dakika`,
+            toplamUcret: `${toplamUcret} TL`
+        });
     } catch (err) {
         res.status(500).json({ durum: 'HATA', mesaj: 'Sunucu hatası', detay: err.message });
     }
@@ -126,7 +172,11 @@ app.post('/api/cikis', async (req, res) => {
 app.get('/api/durum', async (req, res) => {
     try {
         const pool = await poolPromise;
-        const sonuc = await pool.request().query(`SELECT ParkYeriID, ParkYeriAdi, DoluMu, MevcutBiletNo, CONVERT(varchar(19), SonGuncelleme, 126) + '+03:00' as SonGuncelleme FROM ParkYerleri ORDER BY ParkYeriAdi`);
+        const sonuc = await pool.request().query(`
+            SELECT ParkYeriID, ParkYeriAdi, DoluMu, MevcutPlaka,
+                   CONVERT(varchar(19), SonGuncelleme, 126) + '+03:00' as SonGuncelleme
+            FROM ParkYerleri ORDER BY ParkYeriAdi
+        `);
         res.json(sonuc.recordset);
     } catch (err) {
         res.status(500).json({ durum: 'HATA', mesaj: 'Park yerleri getirilemedi' });
@@ -138,7 +188,10 @@ app.post('/api/login', async (req, res) => {
     const { kullaniciAdi, sifre } = req.body;
     try {
         const pool = await poolPromise;
-        const sorgu = await pool.request().query(`SELECT * FROM Kullanicilar WHERE KullaniciAdi = '${kullaniciAdi}' AND SifreHash = '${sifre}'`);
+        const sorgu = await pool.request()
+            .input('kullaniciAdi', sql.NVarChar, kullaniciAdi)
+            .input('sifre', sql.NVarChar, sifre)
+            .query('SELECT * FROM Kullanicilar WHERE KullaniciAdi = @kullaniciAdi AND SifreHash = @sifre');
 
         if (sorgu.recordset.length > 0) {
             res.json({ durum: 'BASARILI', kullanici: sorgu.recordset[0].KullaniciAdi });
