@@ -1,0 +1,15 @@
+Proje Geliştirme Günlüğü — Akıllı Otopark Yönetim Sistemi
+
+9. Gün – Plaka Simülasyonu ve Modern Bildirim (Toast) Sistemi
+
+Tarih: 2 Temmuz 2026
+
+Yaptığım Çalışmalar
+
+Sistemin temel mimarisini oluşturan "Rastgele Bilet Numarası" mantığını kaldırıp, gerçek otopark senaryolarına uygun "Plaka Tanıma" sistemine geçiş yapmak.
+
+Backend üzerinde araç giriş-çıkış API'lerini, dışarıdan parametre (plaka) alacak şekilde yeniden düzenlemek.
+
+Kullanıcı arayüzünde (Frontend) ekranda sabit duran ve yeri kaplayan klasik mesaj kutularını kaldırarak, ekranın sağ alt köşesinden kayarak gelen, şık ve geçici (Toast) bildirim sistemini entegre etmek.
+
+"Yeni Araç Al" butonuna basıldığında operatörden manuel plaka girmesini isteyen bir modal (açılır pencere) tasarlamak.
