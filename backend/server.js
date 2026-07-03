@@ -203,4 +203,146 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
+// ==========================================================
+// ============  RAPORLAMA (FİNANSAL ANALİZ) API'LERİ  ======
+// ==========================================================
+
+// --- 1) ÖZET KPI'LAR: bugün/dün, son7/önceki7, son30/önceki30, ortalamalar ---
+app.get('/api/raporlar/ozet', async (req, res) => {
+    try {
+        const pool = await poolPromise;
+        const sorgu = await pool.request().query(`
+            DECLARE @Bugun DECIMAL(10,2), @Dun DECIMAL(10,2);
+            DECLARE @Son7Gun DECIMAL(10,2), @Onceki7Gun DECIMAL(10,2);
+            DECLARE @Son30Gun DECIMAL(10,2), @Onceki30Gun DECIMAL(10,2);
+            DECLARE @OrtalamaUcret DECIMAL(10,2), @OrtalamaSureDakika DECIMAL(10,2);
+            DECLARE @ToplamIslem30 INT;
+
+            SELECT @Bugun = ISNULL(SUM(ToplamUcret),0) FROM GirisCikisKayitlari
+                WHERE CAST(CikisSaati AS DATE) = CAST(GETDATE() AS DATE);
+
+            SELECT @Dun = ISNULL(SUM(ToplamUcret),0) FROM GirisCikisKayitlari
+                WHERE CAST(CikisSaati AS DATE) = CAST(DATEADD(day,-1,GETDATE()) AS DATE);
+
+            SELECT @Son7Gun = ISNULL(SUM(ToplamUcret),0) FROM GirisCikisKayitlari
+                WHERE CikisSaati >= DATEADD(day,-7,CAST(GETDATE() AS DATE));
+
+            SELECT @Onceki7Gun = ISNULL(SUM(ToplamUcret),0) FROM GirisCikisKayitlari
+                WHERE CikisSaati >= DATEADD(day,-14,CAST(GETDATE() AS DATE))
+                  AND CikisSaati < DATEADD(day,-7,CAST(GETDATE() AS DATE));
+
+            SELECT @Son30Gun = ISNULL(SUM(ToplamUcret),0) FROM GirisCikisKayitlari
+                WHERE CikisSaati >= DATEADD(day,-30,CAST(GETDATE() AS DATE));
+
+            SELECT @Onceki30Gun = ISNULL(SUM(ToplamUcret),0) FROM GirisCikisKayitlari
+                WHERE CikisSaati >= DATEADD(day,-60,CAST(GETDATE() AS DATE))
+                  AND CikisSaati < DATEADD(day,-30,CAST(GETDATE() AS DATE));
+
+            SELECT
+                @OrtalamaUcret = ISNULL(AVG(ToplamUcret),0),
+                @OrtalamaSureDakika = ISNULL(AVG(CAST(DATEDIFF(minute, GirisSaati, CikisSaati) AS DECIMAL(10,2))),0),
+                @ToplamIslem30 = COUNT(*)
+            FROM GirisCikisKayitlari
+            WHERE CikisSaati >= DATEADD(day,-30,CAST(GETDATE() AS DATE));
+
+            SELECT
+                @Bugun AS Bugun, @Dun AS Dun,
+                @Son7Gun AS Son7Gun, @Onceki7Gun AS Onceki7Gun,
+                @Son30Gun AS Son30Gun, @Onceki30Gun AS Onceki30Gun,
+                @OrtalamaUcret AS OrtalamaUcret, @OrtalamaSureDakika AS OrtalamaSureDakika,
+                @ToplamIslem30 AS ToplamIslem30;
+        `);
+        res.json(sorgu.recordset[0]);
+    } catch (err) {
+        res.status(500).json({ durum: 'HATA', mesaj: 'Özet getirilemedi', detay: err.message });
+    }
+});
+
+// --- 2) GÜNLÜK GELİR TRENDİ (son N gün) ---
+app.get('/api/raporlar/trend', async (req, res) => {
+    const gun = Math.min(Math.max(parseInt(req.query.gun) || 30, 1), 365);
+    try {
+        const pool = await poolPromise;
+        const sonuc = await pool.request()
+            .input('gun', sql.Int, gun)
+            .query(`
+                SELECT
+                    CONVERT(varchar(10), CAST(CikisSaati AS DATE), 23) AS Tarih,
+                    SUM(ToplamUcret) AS Ciro,
+                    COUNT(*) AS IslemSayisi
+                FROM GirisCikisKayitlari
+                WHERE CikisSaati IS NOT NULL
+                  AND CikisSaati >= DATEADD(day, -@gun, CAST(GETDATE() AS DATE))
+                GROUP BY CAST(CikisSaati AS DATE)
+                ORDER BY Tarih ASC
+            `);
+        res.json(sonuc.recordset);
+    } catch (err) {
+        res.status(500).json({ durum: 'HATA', mesaj: 'Trend verisi getirilemedi', detay: err.message });
+    }
+});
+
+// --- 3) SAATLİK YOĞUNLUK / GELİR (son 30 gün, saat kırılımı) ---
+app.get('/api/raporlar/saatlik', async (req, res) => {
+    try {
+        const pool = await poolPromise;
+        const sonuc = await pool.request().query(`
+            SELECT DATEPART(hour, CikisSaati) AS Saat,
+                   SUM(ToplamUcret) AS Ciro,
+                   COUNT(*) AS IslemSayisi
+            FROM GirisCikisKayitlari
+            WHERE CikisSaati IS NOT NULL
+              AND CikisSaati >= DATEADD(day,-30,CAST(GETDATE() AS DATE))
+            GROUP BY DATEPART(hour, CikisSaati)
+            ORDER BY Saat ASC
+        `);
+        res.json(sonuc.recordset);
+    } catch (err) {
+        res.status(500).json({ durum: 'HATA', mesaj: 'Saatlik veri getirilemedi', detay: err.message });
+    }
+});
+
+// --- 4) BLOK BAZLI CİRO (ParkYeriAdi'nin ilk harfi = blok, örn. "A1" -> "A") ---
+app.get('/api/raporlar/blok', async (req, res) => {
+    try {
+        const pool = await poolPromise;
+        const sonuc = await pool.request().query(`
+            SELECT LEFT(p.ParkYeriAdi, 1) AS Blok,
+                   SUM(g.ToplamUcret) AS Ciro,
+                   COUNT(*) AS IslemSayisi
+            FROM GirisCikisKayitlari g
+            JOIN ParkYerleri p ON p.ParkYeriID = g.ParkYeriID
+            WHERE g.CikisSaati IS NOT NULL
+              AND g.CikisSaati >= DATEADD(day,-30,CAST(GETDATE() AS DATE))
+            GROUP BY LEFT(p.ParkYeriAdi, 1)
+            ORDER BY Blok ASC
+        `);
+        res.json(sonuc.recordset);
+    } catch (err) {
+        res.status(500).json({ durum: 'HATA', mesaj: 'Blok verisi getirilemedi', detay: err.message });
+    }
+});
+
+// --- 5) EN KARLI 10 İŞLEM (tüm zamanlar, en yüksek ücretli çıkışlar) ---
+app.get('/api/raporlar/en-karli-islemler', async (req, res) => {
+    try {
+        const pool = await poolPromise;
+        const sonuc = await pool.request().query(`
+            SELECT TOP 10
+                g.Plaka, p.ParkYeriAdi,
+                CONVERT(varchar(16), g.GirisSaati, 120) AS GirisSaati,
+                CONVERT(varchar(16), g.CikisSaati, 120) AS CikisSaati,
+                DATEDIFF(minute, g.GirisSaati, g.CikisSaati) AS SureDakika,
+                g.ToplamUcret
+            FROM GirisCikisKayitlari g
+            JOIN ParkYerleri p ON p.ParkYeriID = g.ParkYeriID
+            WHERE g.CikisSaati IS NOT NULL
+            ORDER BY g.ToplamUcret DESC
+        `);
+        res.json(sonuc.recordset);
+    } catch (err) {
+        res.status(500).json({ durum: 'HATA', mesaj: 'İşlemler getirilemedi', detay: err.message });
+    }
+});
+
 app.listen(8080, () => console.log('Sunucu 8080 portunda çalışıyor.'));

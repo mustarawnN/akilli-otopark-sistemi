@@ -8,7 +8,9 @@ import {
   ArrowRightOnRectangleIcon,
   CheckCircleIcon,
   XCircleIcon,
+  ArrowTrendingUpIcon,
 } from '@heroicons/react/24/solid';
+import ReportsPage from './ReportsPage';
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -21,8 +23,10 @@ export default function App() {
   const [girisHata, setGirisHata] = useState('');
   const [parkYerleri, setParkYerleri] = useState([]);
 
+  // 'panel' = ana yönetim ekranı, 'raporlar' = finansal raporlama sayfası
+  const [gorunum, setGorunum] = useState('panel');
+
   // --- TOAST BİLDİRİM SİSTEMİ ---
-  // Her toast: { id, tip: 'basarili' | 'hata', metin, sure, kapaniyor }
   const [toasts, setToasts] = useState([]);
   const toastTimers = useRef({});
 
@@ -31,7 +35,6 @@ export default function App() {
       clearTimeout(toastTimers.current[id].timeoutId);
       delete toastTimers.current[id];
     }
-    // Önce "kapanıyor" işaretle (çıkış animasyonu oynasın), sonra listeden düşür
     setToasts(prev => prev.map(t => (t.id === id ? { ...t, kapaniyor: true } : t)));
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
@@ -77,12 +80,12 @@ export default function App() {
 
   useEffect(() => {
     let interval;
-    if (isLoggedIn) {
+    if (isLoggedIn && gorunum === 'panel') {
       durumuVeIstatistigiGetir();
       interval = setInterval(durumuVeIstatistigiGetir, 3000);
     }
     return () => { if (interval) clearInterval(interval); };
-  }, [isLoggedIn]);
+  }, [isLoggedIn, gorunum]);
 
   const girisYap = async (e) => {
     e.preventDefault();
@@ -114,6 +117,7 @@ export default function App() {
     tumToastlariTemizle();
     setBiletModalAcik(false);
     setCikisOnayAcik(false);
+    setGorunum('panel');
   };
 
   const cikisOnayiIste = () => {
@@ -206,7 +210,6 @@ export default function App() {
     return tarih.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
   };
 
-  // --- EKRAN 1: LOGIN ---
   if (!isLoggedIn) {
     return (
       <div className="min-h-screen bg-gray-100  flex items-center justify-center p-4">
@@ -240,18 +243,21 @@ export default function App() {
     );
   }
 
+  // --- EKRAN 3: RAPORLAMA SAYFASI ---
+  if (gorunum === 'raporlar') {
+    return <ReportsPage geriDon={() => setGorunum('panel')} />;
+  }
+
   const dolulukYuzdesi = (istatistikler.DoluAracSayisi / istatistikler.ToplamKapasite) * 100;
 
-  // Doluluk yüzdesine göre renk belirleyen fonksiyonumuz
   const progressBarRenginiGetir = (yuzde) => {
     if (yuzde >= 80) return 'bg-red-500';
     if (yuzde >= 50) return 'bg-orange-500';
-    return 'bg-emerald-500'; // Düşük dolulukta yeşil ton
+    return 'bg-emerald-500';
   };
 
-  // --- EKRAN 2: ANA YÖNETİM PANELİ ---
   return (
-    <div className="min-h-screen bg-slate-100 p-8 font-sans text-slate-800 relative">
+    <div className="min-h-screen bg-slate-100 p-8 font-sans text-slate-800 relative overflow-x-hidden">
       <div className="max-w-6xl mx-auto">
 
         {/* Üst Bar */}
@@ -269,12 +275,8 @@ export default function App() {
           </button>
         </div>
 
-        {/* ========================================== */}
-        {/* İSTATİSTİK KARTLARI (DASHBOARD)            */}
-        {/* ========================================== */}
+        {/* İSTATİSTİK KARTLARI */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-
-          {/* 1. Kart: Günlük Ciro */}
           <div className="bg-white rounded-2xl shadow-sm p-6 border-l-4 border-emerald-500 flex items-center justify-between hover:shadow-md transition-shadow">
             <div>
               <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Günlük Toplam Ciro</p>
@@ -285,7 +287,6 @@ export default function App() {
             </div>
           </div>
 
-          {/* 2. Kart: Doluluk Oranı ve Progress Bar */}
           <div className="bg-white rounded-2xl shadow-sm p-6 border-l-4 border-blue-500 flex flex-col justify-center hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between mb-3">
               <div>
@@ -304,7 +305,6 @@ export default function App() {
             </div>
           </div>
 
-          {/* 3. Kart: Toplam Giriş Yapan Araç */}
           <div className="bg-white rounded-2xl shadow-sm p-6 border-l-4 border-purple-500 flex items-center justify-between hover:shadow-md transition-shadow">
             <div>
               <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Bugün Giren Araç</p>
@@ -315,21 +315,24 @@ export default function App() {
             </div>
           </div>
         </div>
-        {/* ========================================== */}
 
-        {/* --- BUTONLAR --- */}
-        <div className="flex justify-center gap-4 mb-10">
+        {/* BUTONLAR */}
+        <div className="flex justify-center gap-4 mb-10 flex-wrap">
           <button onClick={aracGirisModaliAc} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-transform hover:scale-105 flex items-center gap-2">
             <PlusCircleIcon className="w-5 h-5" />
             Yeni Araç Al
           </button>
           <button onClick={() => setBiletModalAcik(true)} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-transform hover:scale-105 flex items-center gap-2">
-            <TruckIcon className="w-5 h-5" />
+            <TicketIcon className="w-5 h-5" />
             İçerideki Araçlar
+          </button>
+          <button onClick={() => setGorunum('raporlar')} className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-transform hover:scale-105 flex items-center gap-2">
+            <ArrowTrendingUpIcon className="w-5 h-5" />
+            Raporlar
           </button>
         </div>
 
-        {/* --- OTOPARK IZGARASI --- */}
+        {/* OTOPARK IZGARASI */}
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-6">
           {parkYerleri.map((yer) => (
             <div key={yer.ParkYeriID} className={`p-6 rounded-2xl shadow-md flex flex-col items-center justify-center border-2 ${yer.DoluMu ? 'bg-red-50 border-red-300' : 'bg-green-50 border-green-300'}`}>
@@ -337,7 +340,7 @@ export default function App() {
               {yer.DoluMu ? (
                 <>
                   <span className="text-red-600 font-bold text-sm mb-4 bg-red-100 px-2 py-1 rounded">{yer.MevcutPlaka}</span>
-                  <button onClick={() => araciCikar(yer.MevcutPlaka)} className="bg-red-500 hover:bg-red-600 text-white text-sm font-bold py-2 px-4 rounded-lg w-full">Çıkış Yap</button>
+                  <button onClick={() => araciCikar(yer.MevcutPlaka)} className="bg-red-500 hover:bg-red-600 text-white text-sm font-bold py-2 px-4 rounded-lg w-full transition-colors">Çıkış Yap</button>
                 </>
               ) : (
                 <span className="text-green-600 font-bold mt-4 bg-green-100 px-4 py-1 rounded-full">BOŞ</span>
@@ -347,18 +350,17 @@ export default function App() {
         </div>
       </div>
 
-      {/* --- ARAÇ GİRİŞİ MODALI (PLAKA OKUMA) --- */}
+      {/* ARAÇ GİRİŞİ MODALI */}
       {aracGirisModalAcik && (
         <div className="fixed inset-0 bg-slate-900 bg-opacity-60 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in-up">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
             <div className="bg-blue-900 p-5 text-white flex justify-between items-center">
               <h2 className="text-xl font-bold flex items-center gap-2">
                 <TruckIcon className="w-6 h-6" />
-                Araç Girişi — Plaka Okuma
+                Araç Girişi
               </h2>
               <button onClick={() => setAracGirisModalAcik(false)} className="text-white hover:text-red-400 font-bold text-2xl leading-none">&times;</button>
             </div>
-
             <div className="p-6">
               <label className="block text-sm font-bold text-slate-700 mb-2">Plaka Numarası</label>
               <input
@@ -366,50 +368,34 @@ export default function App() {
                 value={girisPlakasi}
                 onChange={(e) => { setGirisPlakasi(e.target.value.toUpperCase()); setGirisHata(''); }}
                 placeholder="34 ABC 1234"
-                className="w-full px-4 py-3 rounded-lg border-2 border-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg font-bold tracking-wider text-center uppercase"
+                className="w-full px-4 py-3 rounded-lg border-2 border-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg font-bold tracking-wider text-center uppercase outline-none"
                 autoFocus
               />
-
               {girisHata && (
                 <div className="mt-3 bg-red-50 text-red-600 p-3 rounded-lg text-sm font-semibold text-center border flex items-center justify-center gap-2">
-                  <XCircleIcon className="w-5 h-5" />
+                  <XCircleIcon className="w-5 h-5 shrink-0" />
                   {girisHata}
                 </div>
               )}
-
-              <button
-                onClick={rastgelePlakaUret}
-                className="w-full mt-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2.5 rounded-lg border border-slate-300 transition-colors"
-              >
+              <button onClick={rastgelePlakaUret} className="w-full mt-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2.5 rounded-lg border border-slate-300 transition-colors">
                 🎲 Rastgele Plaka Üret
               </button>
             </div>
-
             <div className="bg-slate-100 p-4 flex justify-end gap-3 border-t border-slate-200">
-              <button
-                onClick={() => setAracGirisModalAcik(false)}
-                className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold py-2 px-5 rounded-lg transition-colors"
-              >
-                İptal
-              </button>
-              <button
-                onClick={plakaOnaylaVeGirisYap}
-                className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-5 rounded-lg transition-colors"
-              >
-                Girişi Onayla
-              </button>
+              <button onClick={() => setAracGirisModalAcik(false)} className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold py-2 px-5 rounded-lg transition-colors">İptal</button>
+              <button onClick={plakaOnaylaVeGirisYap} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-5 rounded-lg transition-colors">Girişi Onayla</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* --- İÇERİDEKİ ARAÇLAR MODALI --- */}
+      {/* İÇERİDEKİ ARAÇLAR MODALI */}
       {biletModalAcik && (
         <div className="fixed inset-0 bg-slate-900 bg-opacity-60 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-fade-in-up">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden">
             <div className="bg-indigo-900 p-5 text-white flex justify-between items-center">
               <h2 className="text-xl font-bold flex items-center gap-2">
-                <TruckIcon className="w-6 h-6" />
+                <TicketIcon className="w-6 h-6" />
                 İçerideki Araçlar
               </h2>
               <button onClick={() => setBiletModalAcik(false)} className="text-white hover:text-red-400 font-bold text-2xl leading-none">&times;</button>
@@ -445,41 +431,27 @@ export default function App() {
         </div>
       )}
 
-      {/* --- SİSTEMDEN ÇIKIŞ ONAY MODALI --- */}
+      {/* SİSTEMDEN ÇIKIŞ ONAY MODALI */}
       {cikisOnayAcik && (
         <div className="fixed inset-0 bg-slate-900 bg-opacity-60 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-fade-in-up">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
             <div className="bg-red-600 p-5 text-white flex items-center gap-2">
               <ArrowRightOnRectangleIcon className="w-6 h-6" />
               <h2 className="text-lg font-bold">Çıkış Onayı</h2>
             </div>
             <div className="p-6 text-center">
-              <p className="text-slate-700 font-medium text-base">
-                Sistemden çıkış yapmak istediğine emin misin?
-              </p>
-              <p className="text-slate-400 text-sm mt-2">
-                Oturumun sonlandırılacak, tekrar giriş yapman gerekecek.
-              </p>
+              <p className="text-slate-700 font-medium text-base">Sistemden çıkış yapmak istediğine emin misin?</p>
+              <p className="text-slate-400 text-sm mt-2">Oturumun sonlandırılacak, tekrar giriş yapman gerekecek.</p>
             </div>
             <div className="bg-slate-100 p-4 flex justify-end gap-3 border-t border-slate-200">
-              <button
-                onClick={() => setCikisOnayAcik(false)}
-                className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold py-2 px-5 rounded-lg transition-colors"
-              >
-                İptal
-              </button>
-              <button
-                onClick={sistemdenCikisYap}
-                className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-5 rounded-lg transition-colors"
-              >
-                Evet, Çıkış Yap
-              </button>
+              <button onClick={() => setCikisOnayAcik(false)} className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold py-2 px-5 rounded-lg transition-colors">İptal</button>
+              <button onClick={sistemdenCikisYap} className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-5 rounded-lg transition-colors">Evet, Çıkış Yap</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* --- TOAST BİLDİRİM ANİMASYONLARI --- */}
+      {/* TOAST BİLDİRİM STİLLERİ */}
       <style>{`
         @keyframes toastGiris {
           from { transform: translateX(110%) scale(0.95); opacity: 0; }
@@ -499,37 +471,27 @@ export default function App() {
         .toast-karti:hover .toast-ilerleme-cubugu { animation-play-state: paused; }
       `}</style>
 
-      {/* --- TOAST BİLDİRİM KONTEYNIRI (SAĞ ÜST) --- */}
-      <div className="fixed top-6 right-6 z-[100] flex flex-col-reverse items-stretch gap-3.5 w-full max-w-md pointer-events-none">
+      {/* TOAST BİLDİRİM KONTEYNIRI */}
+      <div className="fixed top-6 right-6 z-[100] flex flex-col-reverse items-end gap-3.5 w-full max-w-sm pointer-events-none">
         {toasts.map((toast) => (
           <div
             key={toast.id}
             onMouseEnter={() => toastDuraklat(toast.id)}
             onMouseLeave={() => toastDevamEttir(toast.id)}
-            className={`toast-karti pointer-events-auto overflow-hidden bg-white rounded-2xl shadow-2xl border-l-[6px] ${
+            className={`toast-karti pointer-events-auto overflow-hidden bg-white w-full rounded-xl shadow-xl border-l-[6px] ${
               toast.tip === 'hata' ? 'border-red-500' : 'border-emerald-500'
             } ${toast.kapaniyor ? 'toast-cikis' : 'toast-giris'}`}
           >
-            <div className="flex items-start gap-4 p-5 pr-4">
-              <div className={`shrink-0 rounded-full p-2 mt-0.5 ${toast.tip === 'hata' ? 'bg-red-100' : 'bg-emerald-100'}`}>
-                {toast.tip === 'hata' ? (
-                  <XCircleIcon className="w-7 h-7 text-red-500" />
-                ) : (
-                  <CheckCircleIcon className="w-7 h-7 text-emerald-500" />
-                )}
+            <div className="flex items-start gap-3 p-4 pr-3">
+              <div className={`shrink-0 rounded-full p-1.5 ${toast.tip === 'hata' ? 'bg-red-100 text-red-500' : 'bg-emerald-100 text-emerald-500'}`}>
+                {toast.tip === 'hata' ? <XCircleIcon className="w-6 h-6" /> : <CheckCircleIcon className="w-6 h-6" />}
               </div>
-              <p className="text-base font-semibold text-slate-700 flex-1 leading-snug pt-1.5">
+              <p className="text-sm font-semibold text-slate-700 flex-1 leading-snug pt-1">
                 {toast.metin}
               </p>
-              <button
-                onClick={() => toastKaldir(toast.id)}
-                className="shrink-0 text-slate-300 hover:text-slate-500 font-bold text-2xl leading-none px-1 transition-colors"
-                aria-label="Bildirimi kapat"
-              >
-                &times;
-              </button>
+              <button onClick={() => toastKaldir(toast.id)} className="shrink-0 text-slate-400 hover:text-slate-600 font-bold text-xl leading-none px-1 transition-colors">&times;</button>
             </div>
-            <div className="h-1.5 bg-slate-100 w-full">
+            <div className="h-1 bg-slate-100 w-full">
               <div
                 className={`h-full toast-ilerleme-cubugu ${toast.tip === 'hata' ? 'bg-red-400' : 'bg-emerald-400'}`}
                 style={{ animationDuration: `${toast.sure}ms` }}
