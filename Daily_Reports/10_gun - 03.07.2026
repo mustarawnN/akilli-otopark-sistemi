@@ -1,0 +1,13 @@
+Proje Geliştirme Günlüğü — Akıllı Otopark Yönetim Sistemi
+
+10. Gün – Native Charting (Özel Grafik Motoru) ve Finansal Raporlama
+
+Tarih: 3 Temmuz 2026
+
+Yaptığım Çalışmalar
+
+Otoparkın finansal performansını analiz etmek için detaylı bir "Raporlar" sayfası oluşturmak.
+
+Harici grafik kütüphanelerine bağımlılığı kaldırarak, sistemin performansını ve kararlılığını artıracak "Native Charting" (Saf HTML/SVG/CSS) motorunu geliştirmek.
+
+Ciro takibi, blok bazlı gelir dağılımı ve saatlik yoğunluk .... gibi verileri görselleştirmek.
