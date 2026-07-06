@@ -9,6 +9,8 @@ import {
   CheckCircleIcon,
   XCircleIcon,
   ArrowTrendingUpIcon,
+  CurrencyDollarIcon,
+  PencilSquareIcon,
 } from '@heroicons/react/24/solid';
 import ReportsPage from './ReportsPage';
 
@@ -22,7 +24,11 @@ export default function App() {
   const [girisPlakasi, setGirisPlakasi] = useState('');
   const [girisHata, setGirisHata] = useState('');
   const [parkYerleri, setParkYerleri] = useState([]);
-
+const [fiyatlandirmaModalAcik, setFiyatlandirmaModalAcik] = useState(false);
+const [fiyatlandirma, setFiyatlandirma] = useState(null);
+const [taslakFiyatlandirma, setTaslakFiyatlandirma] = useState(null);
+const [duzenlemeModu, setDuzenlemeModu] = useState(false);
+const [fiyatKaydediliyor, setFiyatKaydediliyor] = useState(false);
   // 'panel' = ana yönetim ekranı, 'raporlar' = finansal raporlama sayfası
   const [gorunum, setGorunum] = useState('panel');
 
@@ -108,7 +114,46 @@ export default function App() {
       setLoginHata('Sunucuya bağlanılamadı.');
     }
   };
+const fiyatlandirmaModaliniAc = async () => {
+  setFiyatlandirmaModalAcik(true);
+  setDuzenlemeModu(false);
+  try {
+    const res = await fetch('http://127.0.0.1:8080/api/fiyatlandirma');
+    const data = await res.json();
+    setFiyatlandirma(data);
+    setTaslakFiyatlandirma(data);
+  } catch (error) {
+    toastEkle('hata', 'Fiyatlandırma bilgisi alınamadı!');
+  }
+};
 
+const fiyatAlaniniGuncelle = (alan, deger) => {
+  setTaslakFiyatlandirma(prev => ({ ...prev, [alan]: deger }));
+};
+
+const fiyatlandirmayiKaydet = async () => {
+  setFiyatKaydediliyor(true);
+  try {
+    const res = await fetch('http://127.0.0.1:8080/api/fiyatlandirma', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(taslakFiyatlandirma)
+    });
+    const data = await res.json();
+    if (data.durum === 'BASARILI') {
+      setFiyatlandirma(data.ayar);
+      setTaslakFiyatlandirma(data.ayar);
+      setDuzenlemeModu(false);
+      toastEkle('basarili', 'Fiyatlandırma başarıyla güncellendi.');
+    } else {
+      toastEkle('hata', data.mesaj || 'Güncelleme başarısız.');
+    }
+  } catch (error) {
+    toastEkle('hata', 'Sunucuya bağlanılamadı!');
+  } finally {
+    setFiyatKaydediliyor(false);
+  }
+};
   const sistemdenCikisYap = () => {
     setIsLoggedIn(false);
     setKullaniciAdi('');
@@ -330,6 +375,10 @@ export default function App() {
             <ArrowTrendingUpIcon className="w-5 h-5" />
             Raporlar
           </button>
+          <button onClick={fiyatlandirmaModaliniAc} className="bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-transform hover:scale-105 flex items-center gap-2">
+  <CurrencyDollarIcon className="w-5 h-5" />
+  Fiyatlandırma
+</button>
         </div>
 
         {/* OTOPARK IZGARASI */}
@@ -450,7 +499,119 @@ export default function App() {
           </div>
         </div>
       )}
+{/* FİYATLANDIRMA MODALI */}
+{fiyatlandirmaModalAcik && (
+  <div className="fixed inset-0 bg-slate-900 bg-opacity-60 flex items-center justify-center z-50 p-4">
+    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden">
+      <div className="bg-amber-500 p-5 text-white flex justify-between items-center">
+        <h2 className="text-xl font-bold flex items-center gap-2">
+          <CurrencyDollarIcon className="w-6 h-6" />
+          Fiyatlandırma Tarifesi
+        </h2>
+        <button
+          onClick={() => { setFiyatlandirmaModalAcik(false); setDuzenlemeModu(false); }}
+          className="text-white hover:text-red-200 font-bold text-2xl leading-none"
+        >&times;</button>
+      </div>
 
+      <div className="p-6 max-h-[65vh] overflow-y-auto">
+        {!fiyatlandirma ? (
+          <p className="text-center text-slate-500 py-8 font-medium">Yükleniyor...</p>
+        ) : (
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b-2 border-slate-200">
+                <th className="py-3 text-slate-600 font-bold">Kalış Süresi</th>
+                <th className="py-3 text-slate-600 font-bold text-right">Ücret (₺)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="border-b border-slate-100">
+                <td className="py-3 font-medium text-slate-700">İlk 30 dakika</td>
+                <td className="py-3 text-right font-bold text-emerald-600">Ücretsiz</td>
+              </tr>
+
+              {[
+                { alan: 'Tarife0_1Saat', etiket: '0 - 1 Saat' },
+                { alan: 'Tarife1_2Saat', etiket: '1 - 2 Saat' },
+                { alan: 'Tarife2_4Saat', etiket: '2 - 4 Saat' },
+                { alan: 'Tarife4_8Saat', etiket: '4 - 8 Saat' },
+                { alan: 'Tarife8_12Saat', etiket: '8 - 12 Saat' },
+                { alan: 'Tarife12_24Saat', etiket: '12 - 24 Saat' },
+              ].map(satir => (
+                <tr key={satir.alan} className="border-b border-slate-100 hover:bg-slate-50">
+                  <td className="py-3 font-medium text-slate-700">{satir.etiket}</td>
+                  <td className="py-3 text-right">
+                    {duzenlemeModu ? (
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={taslakFiyatlandirma[satir.alan]}
+                        onChange={(e) => fiyatAlaniniGuncelle(satir.alan, e.target.value)}
+                        className="w-24 text-right px-2 py-1 rounded-lg border-2 border-slate-200 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none font-bold"
+                      />
+                    ) : (
+                      <span className="font-bold text-slate-800">{Number(fiyatlandirma[satir.alan]).toFixed(0)} ₺</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+
+              <tr>
+                <td className="py-3 font-medium text-slate-700">24 saati aşan her gün</td>
+                <td className="py-3 text-right">
+                  {duzenlemeModu ? (
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={taslakFiyatlandirma.Tarife24SaatSonrasiGunluk}
+                      onChange={(e) => fiyatAlaniniGuncelle('Tarife24SaatSonrasiGunluk', e.target.value)}
+                      className="w-24 text-right px-2 py-1 rounded-lg border-2 border-slate-200 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none font-bold"
+                    />
+                  ) : (
+                    <span className="font-bold text-slate-800">+{Number(fiyatlandirma.Tarife24SaatSonrasiGunluk).toFixed(0)} ₺</span>
+                  )}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      <div className="bg-slate-100 p-4 flex justify-between items-center border-t border-slate-200">
+        {duzenlemeModu ? (
+          <>
+            <button
+              onClick={() => { setTaslakFiyatlandirma(fiyatlandirma); setDuzenlemeModu(false); }}
+              className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold py-2 px-5 rounded-lg transition-colors"
+            >İptal</button>
+            <button
+              onClick={fiyatlandirmayiKaydet}
+              disabled={fiyatKaydediliyor}
+              className="bg-amber-500 hover:bg-amber-600 disabled:opacity-60 text-white font-bold py-2 px-5 rounded-lg transition-colors"
+            >{fiyatKaydediliyor ? 'Kaydediliyor...' : 'Kaydet'}</button>
+          </>
+        ) : (
+          <>
+            <button
+              onClick={() => setFiyatlandirmaModalAcik(false)}
+              className="bg-slate-600 hover:bg-slate-700 text-white font-bold py-2 px-6 rounded-lg transition-colors"
+            >Kapat</button>
+            <button
+              onClick={() => setDuzenlemeModu(true)}
+              className="bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 px-5 rounded-lg transition-colors flex items-center gap-2"
+            >
+              <PencilSquareIcon className="w-5 h-5" />
+              Düzenle
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  </div>
+)}
       {/* TOAST BİLDİRİM STİLLERİ */}
       <style>{`
         @keyframes toastGiris {

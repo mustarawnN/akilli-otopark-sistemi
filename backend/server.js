@@ -30,7 +30,25 @@ const poolPromise = new sql.ConnectionPool(dbConfig)
         console.error('SQL BAĞLANTI HATASI:', err.message);
         process.exit(1);
     });
+function ucretHesapla(dakika, ayar) {
+    if (dakika <= 30) return 0;
+    if (dakika <= 60) return Number(ayar.Tarife0_1Saat);
+    if (dakika <= 120) return Number(ayar.Tarife1_2Saat);
+    if (dakika <= 240) return Number(ayar.Tarife2_4Saat);
+    if (dakika <= 480) return Number(ayar.Tarife4_8Saat);
+    if (dakika <= 720) return Number(ayar.Tarife8_12Saat);
+    if (dakika <= 1440) return Number(ayar.Tarife12_24Saat);
 
+    // 24 saati aşan her tam gün için ek ücret
+    const asanDakika = dakika - 1440;
+    const ekGun = Math.ceil(asanDakika / 1440);
+    return Number(ayar.Tarife12_24Saat) + (ekGun * Number(ayar.Tarife24SaatSonrasiGunluk));
+}
+
+async function fiyatlandirmaGetir(pool) {
+    const sonuc = await pool.request().query('SELECT TOP 1 * FROM FiyatlandirmaAyarlari WHERE ID = 1');
+    return sonuc.recordset[0];
+}
 // --- İSTATİSTİK (DASHBOARD) API'Sİ ---
 app.get('/api/istatistik', async (req, res) => {
     try {
@@ -144,8 +162,8 @@ app.post('/api/cikis', async (req, res) => {
         const farkMilisaniye = cikisSaati - girisSaati;
         const farkDakika = Math.ceil(farkMilisaniye / (1000 * 60));
 
-        let toplamUcret = 50;
-        if (farkDakika > 60) toplamUcret += (farkDakika - 60) * 1;
+        const ayar = await fiyatlandirmaGetir(pool);
+        const toplamUcret = ucretHesapla(farkDakika, ayar);
 
         await pool.request()
             .input('kayitId', sql.Int, kayit.KayitID)
@@ -344,5 +362,54 @@ app.get('/api/raporlar/en-karli-islemler', async (req, res) => {
         res.status(500).json({ durum: 'HATA', mesaj: 'İşlemler getirilemedi', detay: err.message });
     }
 });
+// --- FİYATLANDIRMA: MEVCUT TARİFEYİ GETİR ---
+app.get('/api/fiyatlandirma', async (req, res) => {
+    try {
+        const pool = await poolPromise;
+        const ayar = await fiyatlandirmaGetir(pool);
+        res.json(ayar);
+    } catch (err) {
+        res.status(500).json({ durum: 'HATA', mesaj: 'Fiyatlandırma getirilemedi', detay: err.message });
+    }
+});
 
+// --- FİYATLANDIRMA: TARİFEYİ GÜNCELLE ---
+app.put('/api/fiyatlandirma', async (req, res) => {
+    const {
+        Tarife0_1Saat, Tarife1_2Saat, Tarife2_4Saat,
+        Tarife4_8Saat, Tarife8_12Saat, Tarife12_24Saat,
+        Tarife24SaatSonrasiGunluk
+    } = req.body;
+
+    const alanlar = { Tarife0_1Saat, Tarife1_2Saat, Tarife2_4Saat, Tarife4_8Saat, Tarife8_12Saat, Tarife12_24Saat, Tarife24SaatSonrasiGunluk };
+    for (const [ad, deger] of Object.entries(alanlar)) {
+        if (deger === undefined || deger === null || isNaN(deger) || Number(deger) < 0) {
+            return res.status(400).json({ durum: 'HATA', mesaj: `Geçersiz değer: ${ad}` });
+        }
+    }
+
+    try {
+        const pool = await poolPromise;
+        await pool.request()
+            .input('t1', sql.Decimal(10, 2), Tarife0_1Saat)
+            .input('t2', sql.Decimal(10, 2), Tarife1_2Saat)
+            .input('t3', sql.Decimal(10, 2), Tarife2_4Saat)
+            .input('t4', sql.Decimal(10, 2), Tarife4_8Saat)
+            .input('t5', sql.Decimal(10, 2), Tarife8_12Saat)
+            .input('t6', sql.Decimal(10, 2), Tarife12_24Saat)
+            .input('t7', sql.Decimal(10, 2), Tarife24SaatSonrasiGunluk)
+            .query(`
+                UPDATE FiyatlandirmaAyarlari SET
+                    Tarife0_1Saat = @t1, Tarife1_2Saat = @t2, Tarife2_4Saat = @t3,
+                    Tarife4_8Saat = @t4, Tarife8_12Saat = @t5, Tarife12_24Saat = @t6,
+                    Tarife24SaatSonrasiGunluk = @t7, GuncellemeTarihi = GETDATE()
+                WHERE ID = 1
+            `);
+        const pool2 = await poolPromise;
+        const guncel = await fiyatlandirmaGetir(pool2);
+        res.json({ durum: 'BASARILI', mesaj: 'Fiyatlandırma güncellendi', ayar: guncel });
+    } catch (err) {
+        res.status(500).json({ durum: 'HATA', mesaj: 'Fiyatlandırma güncellenemedi', detay: err.message });
+    }
+});
 app.listen(8080, () => console.log('Sunucu 8080 portunda çalışıyor.'));
