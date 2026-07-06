@@ -1,0 +1,15 @@
+Proje Geliştirme Günlüğü — Akıllı Otopark Yönetim Sistemi
+
+11. Gün – Dinamik Fiyatlandırma Listesi
+
+Tarih: 6 Temmuz 2026
+
+Yaptığım Çalışmalar
+
+Sabit ücret mantığı (50 TL + dakika başı 1 TL) yerine gerçekçi, kademeli fiyatlandırma sistemi (ilk 30 dk ücretsiz, saat dilimlerine göre artan tarife, 24 saat sonrası günlük ek ücret) tasarladım.
+
+Fiyatları koda gömmek yerine FiyatlandirmaAyarlari tablosuna taşıdım; artık admin panelden kod değiştirmeden fiyat güncellenebiliyor.
+
+GET/PUT /api/fiyatlandirma endpoint'lerini ve merkezi ucretHesapla() fonksiyonunu yazdım — hem çıkış işlemi hem yeni API aynı mantığı kullanıyor.
+
+Panelde mevcut tasarımla uyumlu, görüntüleme/düzenleme modlu bir Fiyatlandırma modalı ekledim.
