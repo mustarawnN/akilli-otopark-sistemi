@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   TruckIcon,
   BanknotesIcon,
@@ -11,9 +11,266 @@ import {
   ArrowTrendingUpIcon,
   CurrencyDollarIcon,
   PencilSquareIcon,
+  ArrowLeftIcon,
+  ArrowUpIcon,
+  ArrowDownIcon,
+  ClockIcon,
+  ClipboardDocumentListIcon,
+  CheckBadgeIcon
 } from '@heroicons/react/24/solid';
-import ReportsPage from './ReportsPage';
 
+// ============================================================================
+// --- YEREL (NATIVE) GRAFİK BİLEŞENLERİ (Recharts Olmadan Hatasız Çizim) ---
+// ============================================================================
+const BLOK_RENKLERI = ['#2563eb', '#7c3aed', '#059669', '#d97706', '#dc2626', '#0891b2'];
+
+function BuyumeRozeti({ yuzde }) {
+  const pozitif = yuzde >= 0;
+  return (
+    <span className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full ${pozitif ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+      {pozitif ? <ArrowUpIcon className="w-3 h-3" /> : <ArrowDownIcon className="w-3 h-3" />}
+      {Math.abs(yuzde).toFixed(1)}%
+    </span>
+  );
+}
+
+function NativeTrendGrafigi({ data }) {
+  if (!data || data.length === 0) return <div className="h-64 flex items-center justify-center text-slate-400">Veri bulunmuyor</div>;
+  const maxCiro = Math.max(...data.map(d => d.Ciro), 100);
+  return (
+    <div className="h-64 flex items-end gap-1 w-full pt-4 border-b border-slate-200">
+      {data.map((item, index) => {
+        const height = (item.Ciro / maxCiro) * 100;
+        return (
+          <div key={index} className="group relative flex-1 flex flex-col justify-end items-center h-full">
+            <div className="w-full bg-blue-500 rounded-t-sm hover:bg-blue-400 transition-all cursor-pointer" style={{ height: `${height}%`, minHeight: height > 0 ? '4px' : '0' }}></div>
+            <div className="absolute bottom-full mb-2 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-800 text-white text-xs py-1 px-2 rounded pointer-events-none whitespace-nowrap z-10 shadow-lg">
+              {item.Etiket || item.Tarih} <br/> {Number(item.Ciro).toFixed(0)} ₺
+            </div>
+            <span className="text-[9px] text-slate-400 mt-2 rotate-45 md:rotate-0 origin-left">{index % 2 === 0 ? (item.Etiket || item.Tarih).substring(5) : ''}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function SaatlikGrafik({ veri }) {
+  if (!veri || veri.length === 0) return <div className="h-52 flex items-center justify-center text-slate-400">Veri yok</div>;
+  const maxCiro = Math.max(...veri.map(d => d.Ciro), 1);
+  return (
+    <div className="flex items-end h-52 gap-1 mt-4 border-b border-slate-200 pb-2">
+      {veri.map((d, i) => {
+        const h = (d.Ciro / maxCiro) * 100;
+        return (
+          <div key={i} className="flex-1 flex flex-col items-center group relative h-full justify-end">
+            <div className="hidden group-hover:block absolute bottom-full mb-2 bg-slate-800 text-white text-xs py-1 px-2 rounded whitespace-nowrap z-10 shadow-lg">
+              {d.Saat} - {d.Ciro} ₺
+            </div>
+            <div className="w-full bg-indigo-500 rounded-t-sm transition-all duration-500 hover:bg-indigo-400" style={{ height: `${h}%`, minHeight: h > 0 ? '2px' : '0' }}></div>
+            <span className="text-[9px] text-slate-400 mt-2 font-medium">{i % 3 === 0 ? d.Saat : ''}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function BlokGrafigi({ veri }) {
+  if (!veri || veri.length === 0) return <div className="h-52 flex items-center justify-center text-slate-400">Veri yok</div>;
+  const totalCiro = veri.reduce((sum, b) => sum + Number(b.Ciro), 0) || 1;
+  let startAngle = 0;
+  const dilimler = veri.map((b, i) => {
+    const angle = (Number(b.Ciro) / totalCiro) * 360;
+    const slice = { ...b, startAngle, angle, color: BLOK_RENKLERI[i % BLOK_RENKLERI.length] };
+    startAngle += angle;
+    return slice;
+  });
+  const gradientStr = dilimler.map(s => `${s.color} ${s.startAngle}deg ${s.startAngle + s.angle}deg`).join(', ');
+
+  return (
+    <div className="flex flex-col sm:flex-row items-center justify-center gap-8 mt-4 h-52">
+      <div className="w-40 h-40 rounded-full shadow-sm relative shrink-0 transition-transform hover:scale-105" style={{ background: `conic-gradient(${gradientStr})` }}>
+        <div className="absolute inset-4 bg-white rounded-full shadow-inner flex items-center justify-center">
+          <span className="text-xs font-bold text-slate-400">Blok<br/>Ciro</span>
+        </div>
+      </div>
+      <div className="flex flex-col gap-2 w-full sm:w-auto">
+        {dilimler.map((d, i) => (
+          <div key={i} className="flex items-center gap-3 text-sm text-slate-600">
+            <span className="w-3 h-3 rounded-full shrink-0 shadow-sm" style={{ backgroundColor: d.color }}></span>
+            <span className="font-bold w-6">{d.Blok}</span>
+            <span className="font-medium text-slate-500">{Number(d.Ciro).toFixed(0)} ₺</span>
+            <span className="text-xs text-slate-400 ml-auto">({((d.angle / 360) * 100).toFixed(1)}%)</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
+// RAPORLAR BİLEŞENİ
+// ==========================================
+function ReportsPage({ geriDon }) {
+  const [ozet, setOzet] = useState(null);
+  const [trend, setTrend] = useState([]);
+  const [saatlik, setSaatlik] = useState([]);
+  const [blok, setBlok] = useState([]);
+  const [enKarli, setEnKarli] = useState([]);
+  const [gunAraligi, setGunAraligi] = useState(30);
+  const [yukleniyor, setYukleniyor] = useState(true);
+  const [hata, setHata] = useState('');
+
+  const API_BASE = 'http://127.0.0.1:8080';
+
+  const verileriGetir = useCallback(async () => {
+    setYukleniyor(true); setHata('');
+    try {
+      const zamanDamgasi = new Date().getTime();
+      const [ozetRes, trendRes, saatlikRes, blokRes, karliRes] = await Promise.all([
+        fetch(`${API_BASE}/api/raporlar/ozet?t=${zamanDamgasi}`),
+        fetch(`${API_BASE}/api/raporlar/trend?gun=${gunAraligi}&t=${zamanDamgasi}`),
+        fetch(`${API_BASE}/api/raporlar/saatlik?t=${zamanDamgasi}`),
+        fetch(`${API_BASE}/api/raporlar/blok?t=${zamanDamgasi}`),
+        fetch(`${API_BASE}/api/raporlar/en-karli-islemler?t=${zamanDamgasi}`),
+      ]);
+      setOzet(await ozetRes.json());
+      setTrend(await trendRes.json());
+      setSaatlik(await saatlikRes.json());
+      setBlok(await blokRes.json());
+      setEnKarli(await karliRes.json());
+    } catch (err) {
+      setHata('Rapor verileri sunucudan alınamadı.');
+    } finally {
+      setYukleniyor(false);
+    }
+  }, [gunAraligi]);
+
+  useEffect(() => { verileriGetir(); }, [verileriGetir]);
+
+  const buyumeYuzdesi = (guncel, onceki) => {
+    if (!onceki || onceki === 0) return guncel > 0 ? 100 : 0;
+    return ((guncel - onceki) / onceki) * 100;
+  };
+
+  const saatlikTam = Array.from({ length: 24 }, (_, saat) => {
+    const kayit = saatlik.find((s) => s.Saat === saat);
+    return { Saat: `${String(saat).padStart(2, '0')}:00`, Ciro: kayit ? Number(kayit.Ciro) : 0 };
+  });
+
+  return (
+    <div className="min-h-screen bg-slate-100 p-8 font-sans text-slate-800">
+      <div className="max-w-6xl mx-auto">
+        <div className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm mb-8 border-t-4 border-emerald-600">
+          <div className="flex items-center gap-4">
+            <button onClick={geriDon} className="bg-slate-100 hover:bg-slate-200 text-slate-700 p-2.5 rounded-lg transition-colors">
+              <ArrowLeftIcon className="w-5 h-5" />
+            </button>
+            <div>
+              <h1 className="text-2xl font-extrabold text-slate-800 tracking-tight flex items-center gap-2">
+                <ArrowTrendingUpIcon className="w-7 h-7 text-emerald-600" /> Finansal Raporlar
+              </h1>
+              <p className="text-sm text-slate-500 font-medium">Native Ciro analizi ve trendler</p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            {[7, 30, 90].map((g) => (
+              <button key={g} onClick={() => setGunAraligi(g)} className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${gunAraligi === g ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+                {g} Gün
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {hata && <div className="bg-red-50 text-red-600 p-4 rounded-xl mb-6 font-semibold border border-red-200">{hata}</div>}
+
+        {yukleniyor && !ozet ? (
+          <div className="text-center py-20 text-slate-400 font-semibold animate-pulse">Raporlar yükleniyor...</div>
+        ) : ozet && (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+              <div className="bg-white rounded-2xl shadow-sm p-6 border-l-4 border-emerald-500">
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Bugünkü Ciro</p>
+                <p className="text-2xl font-black text-slate-800 mb-2">{Number(ozet.Bugun).toFixed(0)} <span className="text-sm text-slate-500 font-medium">TL</span></p>
+                <BuyumeRozeti yuzde={buyumeYuzdesi(Number(ozet.Bugun), Number(ozet.Dun))} />
+              </div>
+              <div className="bg-white rounded-2xl shadow-sm p-6 border-l-4 border-blue-500">
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Son 7 Gün</p>
+                <p className="text-2xl font-black text-slate-800 mb-2">{Number(ozet.Son7Gun).toFixed(0)} <span className="text-sm text-slate-500 font-medium">TL</span></p>
+                <BuyumeRozeti yuzde={buyumeYuzdesi(Number(ozet.Son7Gun), Number(ozet.Onceki7Gun))} />
+              </div>
+              <div className="bg-white rounded-2xl shadow-sm p-6 border-l-4 border-purple-500">
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Son 30 Gün</p>
+                <p className="text-2xl font-black text-slate-800 mb-2">{Number(ozet.Son30Gun).toFixed(0)} <span className="text-sm text-slate-500 font-medium">TL</span></p>
+                <BuyumeRozeti yuzde={buyumeYuzdesi(Number(ozet.Son30Gun), Number(ozet.Onceki30Gun))} />
+              </div>
+              <div className="bg-white rounded-2xl shadow-sm p-6 border-l-4 border-orange-500">
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Ort. İşlem Ücreti</p>
+                <p className="text-2xl font-black text-slate-800 mb-2">{Number(ozet.OrtalamaUcret).toFixed(0)} <span className="text-sm text-slate-500 font-medium">TL</span></p>
+                <span className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500"><ClockIcon className="w-3.5 h-3.5" /> {Number(ozet.OrtalamaSureDakika).toFixed(0)} dk park</span>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl shadow-sm p-6 mb-8">
+              <h2 className="text-lg font-bold text-slate-800 mb-4">Günlük Gelir Trendi</h2>
+              <NativeTrendGrafigi data={trend} />
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+              <div className="bg-white rounded-2xl shadow-sm p-6">
+                <h2 className="text-lg font-bold text-slate-800 mb-2">Saatlik Ciro Dağılımı</h2>
+                <p className="text-xs text-slate-400 mb-4">Son 30 gün verisine göre 24 saatlik yoğunluk.</p>
+                <SaatlikGrafik veri={saatlikTam} />
+              </div>
+              <div className="bg-white rounded-2xl shadow-sm p-6">
+                <h2 className="text-lg font-bold text-slate-800 mb-2">Blok Bazlı Ciro Dağılımı</h2>
+                <p className="text-xs text-slate-400 mb-4">Otopark bloklarının toplam ciroya katkısı.</p>
+                <BlokGrafigi veri={blok} />
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl shadow-sm p-6">
+              <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                <ClipboardDocumentListIcon className="w-5 h-5 text-slate-500" />
+                En Yüksek Ücretli 10 İşlem
+              </h2>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b-2 border-slate-200">
+                      <th className="py-3 text-slate-600 font-bold text-sm">Plaka</th>
+                      <th className="py-3 text-slate-600 font-bold text-sm">Park Yeri</th>
+                      <th className="py-3 text-slate-600 font-bold text-sm text-right">Ücret</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {enKarli.map((islem, i) => (
+                      <tr key={i} className="border-b border-slate-100 hover:bg-slate-50">
+                        <td className="py-3 font-bold text-slate-800 tracking-wider">
+                          <div className="inline-flex items-center gap-1.5 bg-slate-100 px-2 py-1 rounded text-xs border border-slate-200">
+                            <TruckIcon className="w-3.5 h-3.5 text-slate-500" /> {islem.Plaka}
+                          </div>
+                        </td>
+                        <td className="py-3 text-slate-600 font-medium">{islem.ParkYeriAdi}</td>
+                        <td className="py-3 text-right font-black text-emerald-600">{Number(islem.ToplamUcret).toFixed(0)} ₺</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+// ==========================================
+// ANA UYGULAMA (APP) BİLEŞENİ
+// ==========================================
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [kullaniciAdi, setKullaniciAdi] = useState('');
@@ -24,15 +281,15 @@ export default function App() {
   const [girisPlakasi, setGirisPlakasi] = useState('');
   const [girisHata, setGirisHata] = useState('');
   const [parkYerleri, setParkYerleri] = useState([]);
-const [fiyatlandirmaModalAcik, setFiyatlandirmaModalAcik] = useState(false);
-const [fiyatlandirma, setFiyatlandirma] = useState(null);
-const [taslakFiyatlandirma, setTaslakFiyatlandirma] = useState(null);
-const [duzenlemeModu, setDuzenlemeModu] = useState(false);
-const [fiyatKaydediliyor, setFiyatKaydediliyor] = useState(false);
-  // 'panel' = ana yönetim ekranı, 'raporlar' = finansal raporlama sayfası
+  const [fiyatlandirmaModalAcik, setFiyatlandirmaModalAcik] = useState(false);
+  const [fiyatlandirma, setFiyatlandirma] = useState(null);
+  const [taslakFiyatlandirma, setTaslakFiyatlandirma] = useState(null);
+  const [duzenlemeModu, setDuzenlemeModu] = useState(false);
+  const [fiyatKaydediliyor, setFiyatKaydediliyor] = useState(false);
+  
+  const [suAn, setSuAn] = useState(new Date());
   const [gorunum, setGorunum] = useState('panel');
 
-  // --- TOAST BİLDİRİM SİSTEMİ ---
   const [toasts, setToasts] = useState([]);
   const toastTimers = useRef({});
 
@@ -42,9 +299,7 @@ const [fiyatKaydediliyor, setFiyatKaydediliyor] = useState(false);
       delete toastTimers.current[id];
     }
     setToasts(prev => prev.map(t => (t.id === id ? { ...t, kapaniyor: true } : t)));
-    setTimeout(() => {
-      setToasts(prev => prev.filter(t => t.id !== id));
-    }, 250);
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 250);
   };
 
   const toastEkle = (tip, metin, sure = 4500) => {
@@ -58,8 +313,7 @@ const [fiyatKaydediliyor, setFiyatKaydediliyor] = useState(false);
     const timer = toastTimers.current[id];
     if (!timer) return;
     clearTimeout(timer.timeoutId);
-    const gecenSure = Date.now() - timer.baslangic;
-    timer.kalanSure = Math.max(timer.sure - gecenSure, 300);
+    timer.kalanSure = Math.max(timer.sure - (Date.now() - timer.baslangic), 300);
   };
 
   const toastDevamEttir = (id) => {
@@ -85,13 +339,30 @@ const [fiyatKaydediliyor, setFiyatKaydediliyor] = useState(false);
   });
 
   useEffect(() => {
+    const timer = setInterval(() => setSuAn(new Date()), 10000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
     let interval;
     if (isLoggedIn && gorunum === 'panel') {
       durumuVeIstatistigiGetir();
+      fiyatlandirmayiGetir(); 
       interval = setInterval(durumuVeIstatistigiGetir, 3000);
     }
     return () => { if (interval) clearInterval(interval); };
   }, [isLoggedIn, gorunum]);
+
+  const fiyatlandirmayiGetir = async () => {
+    try {
+      const res = await fetch('http://127.0.0.1:8080/api/fiyatlandirma');
+      const data = await res.json();
+      setFiyatlandirma(data);
+      setTaslakFiyatlandirma(data);
+    } catch (error) {
+      console.error('Fiyatlandırma çekilemedi', error);
+    }
+  };
 
   const girisYap = async (e) => {
     e.preventDefault();
@@ -114,65 +385,58 @@ const [fiyatKaydediliyor, setFiyatKaydediliyor] = useState(false);
       setLoginHata('Sunucuya bağlanılamadı.');
     }
   };
-const fiyatlandirmaModaliniAc = async () => {
-  setFiyatlandirmaModalAcik(true);
-  setDuzenlemeModu(false);
-  try {
-    const res = await fetch('http://127.0.0.1:8080/api/fiyatlandirma');
-    const data = await res.json();
-    setFiyatlandirma(data);
-    setTaslakFiyatlandirma(data);
-  } catch (error) {
-    toastEkle('hata', 'Fiyatlandırma bilgisi alınamadı!');
-  }
-};
 
-const fiyatAlaniniGuncelle = (alan, deger) => {
-  setTaslakFiyatlandirma(prev => ({ ...prev, [alan]: deger }));
-};
-
-const fiyatlandirmayiKaydet = async () => {
-  setFiyatKaydediliyor(true);
-  try {
-    const res = await fetch('http://127.0.0.1:8080/api/fiyatlandirma', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(taslakFiyatlandirma)
-    });
-    const data = await res.json();
-    if (data.durum === 'BASARILI') {
-      setFiyatlandirma(data.ayar);
-      setTaslakFiyatlandirma(data.ayar);
-      setDuzenlemeModu(false);
-      toastEkle('basarili', 'Fiyatlandırma başarıyla güncellendi.');
-    } else {
-      toastEkle('hata', data.mesaj || 'Güncelleme başarısız.');
+  const fiyatlandirmaModaliniAc = async () => {
+    setFiyatlandirmaModalAcik(true);
+    setDuzenlemeModu(false);
+    try {
+      const res = await fetch('http://127.0.0.1:8080/api/fiyatlandirma');
+      const data = await res.json();
+      setFiyatlandirma(data);
+      setTaslakFiyatlandirma(data);
+    } catch (error) {
+      toastEkle('hata', 'Fiyatlandırma bilgisi alınamadı!');
     }
-  } catch (error) {
-    toastEkle('hata', 'Sunucuya bağlanılamadı!');
-  } finally {
-    setFiyatKaydediliyor(false);
-  }
-};
-  const sistemdenCikisYap = () => {
-    setIsLoggedIn(false);
-    setKullaniciAdi('');
-    setSifre('');
-    setParkYerleri([]);
-    tumToastlariTemizle();
-    setBiletModalAcik(false);
-    setCikisOnayAcik(false);
-    setGorunum('panel');
   };
 
-  const cikisOnayiIste = () => {
-    setCikisOnayAcik(true);
+  const fiyatAlaniniGuncelle = (alan, deger) => {
+    setTaslakFiyatlandirma(prev => ({ ...prev, [alan]: deger }));
   };
+
+  const fiyatlandirmayiKaydet = async () => {
+    setFiyatKaydediliyor(true);
+    try {
+      const res = await fetch('http://127.0.0.1:8080/api/fiyatlandirma', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(taslakFiyatlandirma)
+      });
+      const data = await res.json();
+      if (data.durum === 'BASARILI') {
+        setFiyatlandirma(data.ayar);
+        setTaslakFiyatlandirma(data.ayar);
+        setDuzenlemeModu(false);
+        toastEkle('basarili', 'Fiyatlandırma başarıyla güncellendi.');
+      } else {
+        toastEkle('hata', data.mesaj || 'Güncelleme başarısız.');
+      }
+    } catch (error) {
+      toastEkle('hata', 'Sunucuya bağlanılamadı!');
+    } finally {
+      setFiyatKaydediliyor(false);
+    }
+  };
+
+  const sistemdenCikisYap = () => {
+    setIsLoggedIn(false); setKullaniciAdi(''); setSifre(''); setParkYerleri([]);
+    tumToastlariTemizle(); setBiletModalAcik(false); setCikisOnayAcik(false); setGorunum('panel');
+  };
+
+  const cikisOnayiIste = () => setCikisOnayAcik(true);
 
   const durumuVeIstatistigiGetir = async () => {
     try {
       const zamanDamgasi = new Date().getTime();
-
       const resDurum = await fetch(`http://127.0.0.1:8080/api/durum?t=${zamanDamgasi}`, { cache: 'no-store' });
       if (resDurum.ok) setParkYerleri(await resDurum.json());
 
@@ -197,9 +461,7 @@ const fiyatlandirmayiKaydet = async () => {
   };
 
   const aracGirisModaliAc = () => {
-    setGirisPlakasi('');
-    setGirisHata('');
-    setAracGirisModalAcik(true);
+    setGirisPlakasi(''); setGirisHata(''); setAracGirisModalAcik(true);
   };
 
   const plakaOnaylaVeGirisYap = async () => {
@@ -207,21 +469,18 @@ const fiyatlandirmayiKaydet = async () => {
     const plakaRegex = /^\d{2}\s?[A-PRSTUVYZ]{1,3}\s?\d{2,4}$/;
 
     if (!plakaRegex.test(temizPlaka)) {
-      setGirisHata('Geçersiz plaka formatı! Örn: 34 ABC 1234');
-      return;
+      setGirisHata('Geçersiz plaka formatı! Örn: 34 ABC 1234'); return;
     }
 
     try {
       const res = await fetch('http://127.0.0.1:8080/api/giris', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ plaka: temizPlaka })
       });
       const data = await res.json();
       if (data.durum === 'BASARILI') {
         toastEkle('basarili', `Araç Girdi: ${data.parkEdilenYer} (Plaka: ${data.plaka})`);
-        setAracGirisModalAcik(false);
-        durumuVeIstatistigiGetir();
+        setAracGirisModalAcik(false); durumuVeIstatistigiGetir();
       } else {
         setGirisHata(data.mesaj);
       }
@@ -233,13 +492,12 @@ const fiyatlandirmayiKaydet = async () => {
   const araciCikar = async (plaka) => {
     try {
       const res = await fetch('http://127.0.0.1:8080/api/cikis', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ plaka })
       });
       const data = await res.json();
       if (data.durum === 'BASARILI') {
-        toastEkle('basarili', `Çıkış Başarılı! Tahsil edilen ücret: ${data.toplamUcret}`);
+        toastEkle('basarili', `Çıkış Başarılı! Tahsil edilen ücret: ${data.toplamUcret} ₺`);
         durumuVeIstatistigiGetir();
       } else {
         toastEkle('hata', `Hata: ${data.mesaj}`);
@@ -255,14 +513,45 @@ const fiyatlandirmayiKaydet = async () => {
     return tarih.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
   };
 
+  const sureHesapla = (girisSaatiStr) => {
+    if (!girisSaatiStr) return { dakika: 0, metin: '' };
+    const giris = new Date(girisSaatiStr);
+    const farkMs = suAn - giris;
+    const toplamDakika = Math.max(0, Math.floor(farkMs / 60000));
+    
+    const saat = Math.floor(toplamDakika / 60);
+    const kalanDakika = toplamDakika % 60;
+    
+    let metin = '';
+    if (saat > 0) metin += `${saat} Saat `;
+    metin += `${kalanDakika} Dakika`;
+    
+    return { dakika: toplamDakika, metin: metin || '1 Dakika' };
+  };
+
+  const anlikUcretHesapla = (dakika) => {
+    if (!fiyatlandirma) return 0;
+    if (dakika <= 30) return 0;
+    if (dakika <= 60) return Number(fiyatlandirma.Tarife0_1Saat);
+    if (dakika <= 120) return Number(fiyatlandirma.Tarife1_2Saat);
+    if (dakika <= 240) return Number(fiyatlandirma.Tarife2_4Saat);
+    if (dakika <= 480) return Number(fiyatlandirma.Tarife4_8Saat);
+    if (dakika <= 720) return Number(fiyatlandirma.Tarife8_12Saat);
+    if (dakika <= 1440) return Number(fiyatlandirma.Tarife12_24Saat);
+
+    const asanDakika = dakika - 1440;
+    const ekGun = Math.ceil(asanDakika / 1440);
+    return Number(fiyatlandirma.Tarife12_24Saat) + (ekGun * Number(fiyatlandirma.Tarife24SaatSonrasiGunluk));
+  };
+
+  // GİRİŞ EKRANI
   if (!isLoggedIn) {
     return (
-      <div className="min-h-screen bg-gray-100  flex items-center justify-center p-4">
+      <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
         <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md">
           <div className="text-center mb-8">
             <h1 className="text-3xl font-extrabold text-blue-900 mb-2 flex items-center justify-center gap-2">
-              <TruckIcon className="w-8 h-8 text-blue-700" />
-              Akıllı Otopark
+              <TruckIcon className="w-8 h-8 text-blue-700" /> Akıllı Otopark
             </h1>
             <p className="text-slate-500">Sisteme erişmek için lütfen giriş yapın.</p>
           </div>
@@ -277,46 +566,42 @@ const fiyatlandirmayiKaydet = async () => {
             </div>
             {loginHata && (
               <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm font-semibold text-center border flex items-center justify-center gap-2">
-                <XCircleIcon className="w-5 h-5" />
-                {loginHata}
+                <XCircleIcon className="w-5 h-5" /> {loginHata}
               </div>
             )}
-            <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg shadow-md">Giriş Yap</button>
+            <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg shadow-md transition-colors">Giriş Yap</button>
           </form>
         </div>
       </div>
     );
   }
 
-  // --- EKRAN 3: RAPORLAMA SAYFASI ---
+  // RAPORLAR EKRANI
   if (gorunum === 'raporlar') {
     return <ReportsPage geriDon={() => setGorunum('panel')} />;
   }
 
   const dolulukYuzdesi = (istatistikler.DoluAracSayisi / istatistikler.ToplamKapasite) * 100;
-
   const progressBarRenginiGetir = (yuzde) => {
     if (yuzde >= 80) return 'bg-red-500';
     if (yuzde >= 50) return 'bg-orange-500';
     return 'bg-emerald-500';
   };
 
+  // ANA PANEL EKRANI
   return (
     <div className="min-h-screen bg-slate-100 p-8 font-sans text-slate-800 relative overflow-x-hidden">
       <div className="max-w-6xl mx-auto">
-
         {/* Üst Bar */}
         <div className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm mb-8 border-t-4 border-blue-600">
           <div>
             <h1 className="text-2xl font-extrabold text-blue-900 tracking-tight flex items-center gap-2">
-              <TruckIcon className="w-7 h-7 text-blue-700" />
-              Otopark Yönetim Paneli
+              <TruckIcon className="w-7 h-7 text-blue-700" /> Otopark Yönetim Paneli
             </h1>
             <p className="text-sm text-slate-500 font-medium">Hoş geldin, <span className="text-blue-600 uppercase">{aktifKullanici}</span></p>
           </div>
           <button onClick={cikisOnayiIste} className="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2 px-6 rounded-lg transition-colors flex items-center gap-2">
-            <ArrowRightOnRectangleIcon className="w-5 h-5" />
-            Sistemden Çık
+            <ArrowRightOnRectangleIcon className="w-5 h-5" /> Sistemden Çık
           </button>
         </div>
 
@@ -325,77 +610,98 @@ const fiyatlandirmayiKaydet = async () => {
           <div className="bg-white rounded-2xl shadow-sm p-6 border-l-4 border-emerald-500 flex items-center justify-between hover:shadow-md transition-shadow">
             <div>
               <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Günlük Toplam Ciro</p>
-              <p className="text-3xl font-black text-slate-800">{istatistikler.GunlukCiro} <span className="text-lg text-slate-500 font-medium">TL</span></p>
+              <p className="text-3xl font-black text-slate-800">{istatistikler.GunlukCiro} <span className="text-lg text-slate-500 font-medium">₺</span></p>
             </div>
-            <div className="bg-emerald-100 p-4 rounded-full">
-              <BanknotesIcon className="w-7 h-7 text-emerald-600" />
-            </div>
+            <div className="bg-emerald-100 p-4 rounded-full"><BanknotesIcon className="w-7 h-7 text-emerald-600" /></div>
           </div>
-
           <div className="bg-white rounded-2xl shadow-sm p-6 border-l-4 border-blue-500 flex flex-col justify-center hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between mb-3">
               <div>
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Anlık Doluluk</p>
                 <p className="text-3xl font-black text-slate-800">{istatistikler.DoluAracSayisi} <span className="text-lg text-slate-500 font-medium">/ {istatistikler.ToplamKapasite}</span></p>
               </div>
-              <div className="bg-blue-100 p-4 rounded-full">
-                <TruckIcon className="w-7 h-7 text-blue-600" />
-              </div>
+              <div className="bg-blue-100 p-4 rounded-full"><TruckIcon className="w-7 h-7 text-blue-600" /></div>
             </div>
             <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
-              <div
-                className={`h-2.5 rounded-full transition-all duration-1000 ${progressBarRenginiGetir(dolulukYuzdesi)}`}
-                style={{ width: `${dolulukYuzdesi}%` }}>
-              </div>
+              <div className={`h-2.5 rounded-full transition-all duration-1000 ${progressBarRenginiGetir(dolulukYuzdesi)}`} style={{ width: `${dolulukYuzdesi}%` }}></div>
             </div>
           </div>
-
           <div className="bg-white rounded-2xl shadow-sm p-6 border-l-4 border-purple-500 flex items-center justify-between hover:shadow-md transition-shadow">
             <div>
               <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Bugün Giren Araç</p>
               <p className="text-3xl font-black text-slate-800">{istatistikler.BugunGirenArac}</p>
             </div>
-            <div className="bg-purple-100 p-4 rounded-full">
-              <ChartBarIcon className="w-7 h-7 text-purple-600" />
-            </div>
+            <div className="bg-purple-100 p-4 rounded-full"><ChartBarIcon className="w-7 h-7 text-purple-600" /></div>
           </div>
         </div>
 
         {/* BUTONLAR */}
         <div className="flex justify-center gap-4 mb-10 flex-wrap">
           <button onClick={aracGirisModaliAc} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-transform hover:scale-105 flex items-center gap-2">
-            <PlusCircleIcon className="w-5 h-5" />
-            Yeni Araç Al
+            <PlusCircleIcon className="w-5 h-5" /> Yeni Araç Al
           </button>
           <button onClick={() => setBiletModalAcik(true)} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-transform hover:scale-105 flex items-center gap-2">
-            <TicketIcon className="w-5 h-5" />
-            İçerideki Araçlar
+            <TicketIcon className="w-5 h-5" /> İçerideki Araçlar
           </button>
           <button onClick={() => setGorunum('raporlar')} className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-transform hover:scale-105 flex items-center gap-2">
-            <ArrowTrendingUpIcon className="w-5 h-5" />
-            Raporlar
+            <ArrowTrendingUpIcon className="w-5 h-5" /> Raporlar
           </button>
           <button onClick={fiyatlandirmaModaliniAc} className="bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-transform hover:scale-105 flex items-center gap-2">
-  <CurrencyDollarIcon className="w-5 h-5" />
-  Fiyatlandırma
-</button>
+            <CurrencyDollarIcon className="w-5 h-5" /> Fiyatlandırma
+          </button>
         </div>
 
-        {/* OTOPARK IZGARASI */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-6">
-          {parkYerleri.map((yer) => (
-            <div key={yer.ParkYeriID} className={`p-6 rounded-2xl shadow-md flex flex-col items-center justify-center border-2 ${yer.DoluMu ? 'bg-red-50 border-red-300' : 'bg-green-50 border-green-300'}`}>
-              <span className="text-3xl font-black text-slate-800 mb-2">{yer.ParkYeriAdi}</span>
-              {yer.DoluMu ? (
-                <>
-                  <span className="text-red-600 font-bold text-sm mb-4 bg-red-100 px-2 py-1 rounded">{yer.MevcutPlaka}</span>
-                  <button onClick={() => araciCikar(yer.MevcutPlaka)} className="bg-red-500 hover:bg-red-600 text-white text-sm font-bold py-2 px-4 rounded-lg w-full transition-colors">Çıkış Yap</button>
-                </>
-              ) : (
-                <span className="text-green-600 font-bold mt-4 bg-green-100 px-4 py-1 rounded-full">BOŞ</span>
-              )}
-            </div>
-          ))}
+        {/* YENİ TASARIM: OTOPARK IZGARASI */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+          {parkYerleri.map((yer) => {
+            if (yer.DoluMu) {
+              const sureBilgisi = sureHesapla(yer.SonGuncelleme);
+              const anlikUcret = anlikUcretHesapla(sureBilgisi.dakika);
+
+              return (
+                <div key={yer.ParkYeriID} className="relative bg-red-50 border-l-8 border-red-500 rounded-xl p-5 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 flex flex-col h-full">
+                  <h2 className="text-3xl font-extrabold text-gray-800 mb-4">{yer.ParkYeriAdi}</h2>
+                  
+                  <div className="inline-flex items-center self-start bg-white text-gray-700 px-3 py-1.5 rounded-md text-sm font-bold tracking-widest mb-4 border border-gray-300 shadow-sm">
+                    <TruckIcon className="w-4 h-4 mr-1.5 text-blue-600" /> {yer.MevcutPlaka}
+                  </div>
+
+                  <div className="space-y-2.5 text-sm text-gray-600 mb-6 flex-1">
+                    <p className="flex items-center"><ClockIcon className="w-4 h-4 mr-1.5 text-gray-400" /> <strong className="text-gray-700 mr-1">Giriş:</strong> {saatFormatla(yer.SonGuncelleme)}</p>
+                    <p className="flex items-center">
+                      <svg className="w-4 h-4 mr-1.5 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+                      </svg>
+                      <strong className="text-gray-700 mr-1">Süre:</strong> <span className="text-gray-900 font-semibold">{sureBilgisi.metin}</span>
+                    </p>
+                    <p className="flex items-center"><BanknotesIcon className="w-4 h-4 mr-1.5 text-emerald-500" /> <strong className="text-gray-700 mr-1">Ücret:</strong> <span className="text-emerald-600 font-black text-lg">{anlikUcret} ₺</span></p>
+                    <p className="flex items-center gap-1.5 mt-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-red-500 shadow-[0_0_5px_rgba(239,68,68,0.8)]"></span>
+                      <span className="text-gray-700 font-semibold">Durum:</span> <span className="font-bold text-gray-900">Parkta</span>
+                    </p>
+                  </div>
+                  
+                  <button onClick={() => araciCikar(yer.MevcutPlaka)} className="w-full bg-red-600 hover:bg-red-700 text-white py-2.5 rounded-lg font-bold shadow-sm transition-colors mt-auto">
+                    Çıkış Yap
+                  </button>
+                </div>
+              );
+            } else {
+              return (
+                <div key={yer.ParkYeriID} className="relative bg-green-50 border-l-8 border-green-500 rounded-xl p-5 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 flex flex-col h-full">
+                  <h2 className="text-3xl font-extrabold text-gray-800 mb-4">{yer.ParkYeriAdi}</h2>
+                  <div className="flex-1 flex items-center justify-center py-6">
+                    <span className="bg-green-100 text-green-700 px-6 py-2 rounded-full font-black text-lg border border-green-200 shadow-sm flex items-center gap-2">
+                      <CheckBadgeIcon className="w-6 h-6 text-green-600 animate-pulse" /> BOŞ
+                    </span>
+                  </div>
+                  <button onClick={aracGirisModaliAc} className="w-full bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-lg font-bold shadow-sm transition-colors mt-auto">
+                    Yeni Araç
+                  </button>
+                </div>
+              );
+            }
+          })}
         </div>
       </div>
 
@@ -404,31 +710,14 @@ const fiyatlandirmayiKaydet = async () => {
         <div className="fixed inset-0 bg-slate-900 bg-opacity-60 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
             <div className="bg-blue-900 p-5 text-white flex justify-between items-center">
-              <h2 className="text-xl font-bold flex items-center gap-2">
-                <TruckIcon className="w-6 h-6" />
-                Araç Girişi
-              </h2>
+              <h2 className="text-xl font-bold flex items-center gap-2"><TruckIcon className="w-6 h-6" /> Araç Girişi</h2>
               <button onClick={() => setAracGirisModalAcik(false)} className="text-white hover:text-red-400 font-bold text-2xl leading-none">&times;</button>
             </div>
             <div className="p-6">
               <label className="block text-sm font-bold text-slate-700 mb-2">Plaka Numarası</label>
-              <input
-                type="text"
-                value={girisPlakasi}
-                onChange={(e) => { setGirisPlakasi(e.target.value.toUpperCase()); setGirisHata(''); }}
-                placeholder="34 ABC 1234"
-                className="w-full px-4 py-3 rounded-lg border-2 border-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg font-bold tracking-wider text-center uppercase outline-none"
-                autoFocus
-              />
-              {girisHata && (
-                <div className="mt-3 bg-red-50 text-red-600 p-3 rounded-lg text-sm font-semibold text-center border flex items-center justify-center gap-2">
-                  <XCircleIcon className="w-5 h-5 shrink-0" />
-                  {girisHata}
-                </div>
-              )}
-              <button onClick={rastgelePlakaUret} className="w-full mt-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2.5 rounded-lg border border-slate-300 transition-colors">
-                🎲 Rastgele Plaka Üret
-              </button>
+              <input type="text" value={girisPlakasi} onChange={(e) => { setGirisPlakasi(e.target.value.toUpperCase()); setGirisHata(''); }} placeholder="34 ABC 1234" className="w-full px-4 py-3 rounded-lg border-2 border-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg font-bold tracking-wider text-center uppercase outline-none" autoFocus />
+              {girisHata && <div className="mt-3 bg-red-50 text-red-600 p-3 rounded-lg text-sm font-semibold text-center border flex items-center justify-center gap-2"><XCircleIcon className="w-5 h-5 shrink-0" />{girisHata}</div>}
+              <button onClick={rastgelePlakaUret} className="w-full mt-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2.5 rounded-lg border border-slate-300 transition-colors">🎲 Rastgele Plaka Üret</button>
             </div>
             <div className="bg-slate-100 p-4 flex justify-end gap-3 border-t border-slate-200">
               <button onClick={() => setAracGirisModalAcik(false)} className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold py-2 px-5 rounded-lg transition-colors">İptal</button>
@@ -443,10 +732,7 @@ const fiyatlandirmayiKaydet = async () => {
         <div className="fixed inset-0 bg-slate-900 bg-opacity-60 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden">
             <div className="bg-indigo-900 p-5 text-white flex justify-between items-center">
-              <h2 className="text-xl font-bold flex items-center gap-2">
-                <TicketIcon className="w-6 h-6" />
-                İçerideki Araçlar
-              </h2>
+              <h2 className="text-xl font-bold flex items-center gap-2"><TicketIcon className="w-6 h-6" /> İçerideki Araçlar</h2>
               <button onClick={() => setBiletModalAcik(false)} className="text-white hover:text-red-400 font-bold text-2xl leading-none">&times;</button>
             </div>
             <div className="p-6 max-h-[60vh] overflow-y-auto">
@@ -484,10 +770,7 @@ const fiyatlandirmayiKaydet = async () => {
       {cikisOnayAcik && (
         <div className="fixed inset-0 bg-slate-900 bg-opacity-60 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
-            <div className="bg-red-600 p-5 text-white flex items-center gap-2">
-              <ArrowRightOnRectangleIcon className="w-6 h-6" />
-              <h2 className="text-lg font-bold">Çıkış Onayı</h2>
-            </div>
+            <div className="bg-red-600 p-5 text-white flex items-center gap-2"><ArrowRightOnRectangleIcon className="w-6 h-6" /><h2 className="text-lg font-bold">Çıkış Onayı</h2></div>
             <div className="p-6 text-center">
               <p className="text-slate-700 font-medium text-base">Sistemden çıkış yapmak istediğine emin misin?</p>
               <p className="text-slate-400 text-sm mt-2">Oturumun sonlandırılacak, tekrar giriş yapman gerekecek.</p>
@@ -499,133 +782,86 @@ const fiyatlandirmayiKaydet = async () => {
           </div>
         </div>
       )}
-{/* FİYATLANDIRMA MODALI */}
-{fiyatlandirmaModalAcik && (
-  <div className="fixed inset-0 bg-slate-900 bg-opacity-60 flex items-center justify-center z-50 p-4">
-    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden">
-      <div className="bg-amber-500 p-5 text-white flex justify-between items-center">
-        <h2 className="text-xl font-bold flex items-center gap-2">
-          <CurrencyDollarIcon className="w-6 h-6" />
-          Fiyatlandırma Tarifesi
-        </h2>
-        <button
-          onClick={() => { setFiyatlandirmaModalAcik(false); setDuzenlemeModu(false); }}
-          className="text-white hover:text-red-200 font-bold text-2xl leading-none"
-        >&times;</button>
-      </div>
 
-      <div className="p-6 max-h-[65vh] overflow-y-auto">
-        {!fiyatlandirma ? (
-          <p className="text-center text-slate-500 py-8 font-medium">Yükleniyor...</p>
-        ) : (
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b-2 border-slate-200">
-                <th className="py-3 text-slate-600 font-bold">Kalış Süresi</th>
-                <th className="py-3 text-slate-600 font-bold text-right">Ücret (₺)</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr className="border-b border-slate-100">
-                <td className="py-3 font-medium text-slate-700">İlk 30 dakika</td>
-                <td className="py-3 text-right font-bold text-emerald-600">Ücretsiz</td>
-              </tr>
+      {/* FİYATLANDIRMA MODALI */}
+      {fiyatlandirmaModalAcik && (
+        <div className="fixed inset-0 bg-slate-900 bg-opacity-60 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden">
+            <div className="bg-amber-500 p-5 text-white flex justify-between items-center">
+              <h2 className="text-xl font-bold flex items-center gap-2"><CurrencyDollarIcon className="w-6 h-6" /> Fiyatlandırma Tarifesi</h2>
+              <button onClick={() => { setFiyatlandirmaModalAcik(false); setDuzenlemeModu(false); }} className="text-white hover:text-red-200 font-bold text-2xl leading-none">&times;</button>
+            </div>
+            <div className="p-6 max-h-[65vh] overflow-y-auto">
+              {!fiyatlandirma ? (
+                <p className="text-center text-slate-500 py-8 font-medium">Yükleniyor...</p>
+              ) : (
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b-2 border-slate-200">
+                      <th className="py-3 text-slate-600 font-bold">Kalış Süresi</th>
+                      <th className="py-3 text-slate-600 font-bold text-right">Ücret (₺)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr className="border-b border-slate-100">
+                      <td className="py-3 font-medium text-slate-700">İlk 30 dakika</td>
+                      <td className="py-3 text-right font-bold text-emerald-600">Ücretsiz</td>
+                    </tr>
+                    {[
+                      { alan: 'Tarife0_1Saat', etiket: '0 - 1 Saat' },
+                      { alan: 'Tarife1_2Saat', etiket: '1 - 2 Saat' },
+                      { alan: 'Tarife2_4Saat', etiket: '2 - 4 Saat' },
+                      { alan: 'Tarife4_8Saat', etiket: '4 - 8 Saat' },
+                      { alan: 'Tarife8_12Saat', etiket: '8 - 12 Saat' },
+                      { alan: 'Tarife12_24Saat', etiket: '12 - 24 Saat' },
+                    ].map(satir => (
+                      <tr key={satir.alan} className="border-b border-slate-100 hover:bg-slate-50">
+                        <td className="py-3 font-medium text-slate-700">{satir.etiket}</td>
+                        <td className="py-3 text-right">
+                          {duzenlemeModu ? (
+                            <input type="number" min="0" step="0.01" value={taslakFiyatlandirma[satir.alan]} onChange={(e) => fiyatAlaniniGuncelle(satir.alan, e.target.value)} className="w-24 text-right px-2 py-1 rounded-lg border-2 border-slate-200 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none font-bold" />
+                          ) : (
+                            <span className="font-bold text-slate-800">{Number(fiyatlandirma[satir.alan]).toFixed(0)} ₺</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                    <tr>
+                      <td className="py-3 font-medium text-slate-700">24 saati aşan her gün</td>
+                      <td className="py-3 text-right">
+                        {duzenlemeModu ? (
+                          <input type="number" min="0" step="0.01" value={taslakFiyatlandirma.Tarife24SaatSonrasiGunluk} onChange={(e) => fiyatAlaniniGuncelle('Tarife24SaatSonrasiGunluk', e.target.value)} className="w-24 text-right px-2 py-1 rounded-lg border-2 border-slate-200 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none font-bold" />
+                        ) : (
+                          <span className="font-bold text-slate-800">+{Number(fiyatlandirma.Tarife24SaatSonrasiGunluk).toFixed(0)} ₺</span>
+                        )}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              )}
+            </div>
+            <div className="bg-slate-100 p-4 flex justify-between items-center border-t border-slate-200">
+              {duzenlemeModu ? (
+                <>
+                  <button onClick={() => { setTaslakFiyatlandirma(fiyatlandirma); setDuzenlemeModu(false); }} className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold py-2 px-5 rounded-lg transition-colors">İptal</button>
+                  <button onClick={fiyatlandirmayiKaydet} disabled={fiyatKaydediliyor} className="bg-amber-500 hover:bg-amber-600 disabled:opacity-60 text-white font-bold py-2 px-5 rounded-lg transition-colors">{fiyatKaydediliyor ? 'Kaydediliyor...' : 'Kaydet'}</button>
+                </>
+              ) : (
+                <>
+                  <button onClick={() => setFiyatlandirmaModalAcik(false)} className="bg-slate-600 hover:bg-slate-700 text-white font-bold py-2 px-6 rounded-lg transition-colors">Kapat</button>
+                  <button onClick={() => setDuzenlemeModu(true)} className="bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 px-5 rounded-lg transition-colors flex items-center gap-2"><PencilSquareIcon className="w-5 h-5" /> Düzenle</button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
-              {[
-                { alan: 'Tarife0_1Saat', etiket: '0 - 1 Saat' },
-                { alan: 'Tarife1_2Saat', etiket: '1 - 2 Saat' },
-                { alan: 'Tarife2_4Saat', etiket: '2 - 4 Saat' },
-                { alan: 'Tarife4_8Saat', etiket: '4 - 8 Saat' },
-                { alan: 'Tarife8_12Saat', etiket: '8 - 12 Saat' },
-                { alan: 'Tarife12_24Saat', etiket: '12 - 24 Saat' },
-              ].map(satir => (
-                <tr key={satir.alan} className="border-b border-slate-100 hover:bg-slate-50">
-                  <td className="py-3 font-medium text-slate-700">{satir.etiket}</td>
-                  <td className="py-3 text-right">
-                    {duzenlemeModu ? (
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={taslakFiyatlandirma[satir.alan]}
-                        onChange={(e) => fiyatAlaniniGuncelle(satir.alan, e.target.value)}
-                        className="w-24 text-right px-2 py-1 rounded-lg border-2 border-slate-200 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none font-bold"
-                      />
-                    ) : (
-                      <span className="font-bold text-slate-800">{Number(fiyatlandirma[satir.alan]).toFixed(0)} ₺</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-
-              <tr>
-                <td className="py-3 font-medium text-slate-700">24 saati aşan her gün</td>
-                <td className="py-3 text-right">
-                  {duzenlemeModu ? (
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={taslakFiyatlandirma.Tarife24SaatSonrasiGunluk}
-                      onChange={(e) => fiyatAlaniniGuncelle('Tarife24SaatSonrasiGunluk', e.target.value)}
-                      className="w-24 text-right px-2 py-1 rounded-lg border-2 border-slate-200 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none font-bold"
-                    />
-                  ) : (
-                    <span className="font-bold text-slate-800">+{Number(fiyatlandirma.Tarife24SaatSonrasiGunluk).toFixed(0)} ₺</span>
-                  )}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        )}
-      </div>
-
-      <div className="bg-slate-100 p-4 flex justify-between items-center border-t border-slate-200">
-        {duzenlemeModu ? (
-          <>
-            <button
-              onClick={() => { setTaslakFiyatlandirma(fiyatlandirma); setDuzenlemeModu(false); }}
-              className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold py-2 px-5 rounded-lg transition-colors"
-            >İptal</button>
-            <button
-              onClick={fiyatlandirmayiKaydet}
-              disabled={fiyatKaydediliyor}
-              className="bg-amber-500 hover:bg-amber-600 disabled:opacity-60 text-white font-bold py-2 px-5 rounded-lg transition-colors"
-            >{fiyatKaydediliyor ? 'Kaydediliyor...' : 'Kaydet'}</button>
-          </>
-        ) : (
-          <>
-            <button
-              onClick={() => setFiyatlandirmaModalAcik(false)}
-              className="bg-slate-600 hover:bg-slate-700 text-white font-bold py-2 px-6 rounded-lg transition-colors"
-            >Kapat</button>
-            <button
-              onClick={() => setDuzenlemeModu(true)}
-              className="bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 px-5 rounded-lg transition-colors flex items-center gap-2"
-            >
-              <PencilSquareIcon className="w-5 h-5" />
-              Düzenle
-            </button>
-          </>
-        )}
-      </div>
-    </div>
-  </div>
-)}
       {/* TOAST BİLDİRİM STİLLERİ */}
       <style>{`
-        @keyframes toastGiris {
-          from { transform: translateX(110%) scale(0.95); opacity: 0; }
-          to { transform: translateX(0) scale(1); opacity: 1; }
-        }
-        @keyframes toastCikis {
-          from { transform: translateX(0) scale(1); opacity: 1; max-height: 220px; margin-bottom: 14px; }
-          to { transform: translateX(110%) scale(0.95); opacity: 0; max-height: 0; margin-bottom: 0; }
-        }
-        @keyframes toastIlerleme {
-          from { width: 100%; }
-          to { width: 0%; }
-        }
+        @keyframes toastGiris { from { transform: translateX(110%) scale(0.95); opacity: 0; } to { transform: translateX(0) scale(1); opacity: 1; } }
+        @keyframes toastCikis { from { transform: translateX(0) scale(1); opacity: 1; max-height: 220px; margin-bottom: 14px; } to { transform: translateX(110%) scale(0.95); opacity: 0; max-height: 0; margin-bottom: 0; } }
+        @keyframes toastIlerleme { from { width: 100%; } to { width: 0%; } }
         .toast-giris { animation: toastGiris 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
         .toast-cikis { animation: toastCikis 0.25s ease-in forwards; }
         .toast-ilerleme-cubugu { animation-name: toastIlerleme; animation-timing-function: linear; animation-fill-mode: forwards; }
@@ -647,16 +883,11 @@ const fiyatlandirmayiKaydet = async () => {
               <div className={`shrink-0 rounded-full p-1.5 ${toast.tip === 'hata' ? 'bg-red-100 text-red-500' : 'bg-emerald-100 text-emerald-500'}`}>
                 {toast.tip === 'hata' ? <XCircleIcon className="w-6 h-6" /> : <CheckCircleIcon className="w-6 h-6" />}
               </div>
-              <p className="text-sm font-semibold text-slate-700 flex-1 leading-snug pt-1">
-                {toast.metin}
-              </p>
+              <p className="text-sm font-semibold text-slate-700 flex-1 leading-snug pt-1">{toast.metin}</p>
               <button onClick={() => toastKaldir(toast.id)} className="shrink-0 text-slate-400 hover:text-slate-600 font-bold text-xl leading-none px-1 transition-colors">&times;</button>
             </div>
             <div className="h-1 bg-slate-100 w-full">
-              <div
-                className={`h-full toast-ilerleme-cubugu ${toast.tip === 'hata' ? 'bg-red-400' : 'bg-emerald-400'}`}
-                style={{ animationDuration: `${toast.sure}ms` }}
-              />
+              <div className={`h-full toast-ilerleme-cubugu ${toast.tip === 'hata' ? 'bg-red-400' : 'bg-emerald-400'}`} style={{ animationDuration: `${toast.sure}ms` }} />
             </div>
           </div>
         ))}
