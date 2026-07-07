@@ -1,0 +1,13 @@
+Proje Geliştirme Günlüğü — Akıllı Otopark Yönetim Sistemi
+
+12. Gün – UI/UX Revizyonu
+
+Tarih: 7 Temmuz 2026
+
+Yaptığım Çalışmalar
+
+Park alanı kartlarını (Parking Cards) daha modern ve bilgilendirici bir tasarıma kavuşturmak.
+
+Otopark kartlarında canlı süre ve ücret hesaplama mantığını React state'i ile entegre etmek.
+
+Emojiler yerine kurumsal görünümlü vektörel ikonlar (Heroicons) kullanmak.
