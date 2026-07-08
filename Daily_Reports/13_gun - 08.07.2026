@@ -1,0 +1,11 @@
+## Proje Geliştirme Günlüğü — Akıllı Otopark Yönetim Sistemi
+
+## 13. Gün – Arayüz İyileştirmeleri: Arama Çubuğu ve Gelişmiş Süre Formatlama
+
+*Tarih: 8 Temmuz 2026*
+
+## Yaptığım Çalışmalar
+* Operatörün araçları daha hızlı bulabilmesi için "Plaka/Park Yeri Arama Çubuğu" entegre etmek.
+* Park kartlarındaki süre gösterimini daha anlaşılır ve şık bir yapıya (Gün/Saat/Dk) kavuşturmak.
+* Arayüzdeki küçük tasarım hatalarını (metin taşmaları) gidermek.
+
