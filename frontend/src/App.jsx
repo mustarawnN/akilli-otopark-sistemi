@@ -16,7 +16,8 @@ import {
   ArrowDownIcon,
   ClockIcon,
   ClipboardDocumentListIcon,
-  CheckBadgeIcon
+  CheckBadgeIcon,
+  MagnifyingGlassIcon
 } from '@heroicons/react/24/solid';
 
 // ============================================================================
@@ -267,7 +268,6 @@ function ReportsPage({ geriDon }) {
   );
 }
 
-
 // ==========================================
 // ANA UYGULAMA (APP) BİLEŞENİ
 // ==========================================
@@ -287,6 +287,7 @@ export default function App() {
   const [duzenlemeModu, setDuzenlemeModu] = useState(false);
   const [fiyatKaydediliyor, setFiyatKaydediliyor] = useState(false);
   
+  const [aramaMetni, setAramaMetni] = useState('');
   const [suAn, setSuAn] = useState(new Date());
   const [gorunum, setGorunum] = useState('panel');
 
@@ -519,14 +520,18 @@ export default function App() {
     const farkMs = suAn - giris;
     const toplamDakika = Math.max(0, Math.floor(farkMs / 60000));
     
-    const saat = Math.floor(toplamDakika / 60);
-    const kalanDakika = toplamDakika % 60;
+    const gun = Math.floor(toplamDakika / 1440); // 24 saat = 1440 dakika
+    const kalanDakikaGunSonrasi = toplamDakika % 1440;
+    
+    const saat = Math.floor(kalanDakikaGunSonrasi / 60);
+    const kalanDakika = kalanDakikaGunSonrasi % 60;
     
     let metin = '';
-    if (saat > 0) metin += `${saat} Saat `;
-    metin += `${kalanDakika} Dakika`;
+    if (gun > 0) metin += `${gun} Gün `;
+    if (saat > 0) metin += `${saat} Sa `;
+    metin += `${kalanDakika} Dk`;
     
-    return { dakika: toplamDakika, metin: metin || '1 Dakika' };
+    return { dakika: toplamDakika, metin: metin || '1 Dk' };
   };
 
   const anlikUcretHesapla = (dakika) => {
@@ -543,6 +548,16 @@ export default function App() {
     const ekGun = Math.ceil(asanDakika / 1440);
     return Number(fiyatlandirma.Tarife12_24Saat) + (ekGun * Number(fiyatlandirma.Tarife24SaatSonrasiGunluk));
   };
+
+  // YENİ: Arama çubuğu filtreleme
+  const filtrelenmisParkYerleri = parkYerleri.filter(yer => {
+    if (aramaMetni.trim() === '') return true;
+    const arama = aramaMetni.toLowerCase();
+    return (
+      (yer.MevcutPlaka && yer.MevcutPlaka.toLowerCase().includes(arama)) ||
+      (yer.ParkYeriAdi.toLowerCase().includes(arama))
+    );
+  });
 
   // GİRİŞ EKRANI
   if (!isLoggedIn) {
@@ -636,7 +651,7 @@ export default function App() {
         </div>
 
         {/* BUTONLAR */}
-        <div className="flex justify-center gap-4 mb-10 flex-wrap">
+        <div className="flex justify-center gap-4 mb-8 flex-wrap">
           <button onClick={aracGirisModaliAc} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-transform hover:scale-105 flex items-center gap-2">
             <PlusCircleIcon className="w-5 h-5" /> Yeni Araç Al
           </button>
@@ -651,9 +666,26 @@ export default function App() {
           </button>
         </div>
 
+        {/* YENİ: ARAMA ÇUBUĞU */}
+        <div className="mb-6 flex flex-col sm:flex-row justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200 gap-4">
+          <div className="relative w-full sm:w-1/2 md:w-1/3">
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Plaka veya Park Yeri Ara..."
+              value={aramaMetni}
+              onChange={(e) => setAramaMetni(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 rounded-lg border-2 border-slate-100 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all font-semibold text-slate-700"
+            />
+          </div>
+          <div className="text-sm font-bold text-slate-500">
+            <span className="text-blue-600">{filtrelenmisParkYerleri.length}</span> sonuç listeleniyor
+          </div>
+        </div>
+
         {/* YENİ TASARIM: OTOPARK IZGARASI */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-          {parkYerleri.map((yer) => {
+          {filtrelenmisParkYerleri.map((yer) => {
             if (yer.DoluMu) {
               const sureBilgisi = sureHesapla(yer.SonGuncelleme);
               const anlikUcret = anlikUcretHesapla(sureBilgisi.dakika);
