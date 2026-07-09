@@ -17,7 +17,9 @@ import {
   ClockIcon,
   ClipboardDocumentListIcon,
   CheckBadgeIcon,
-  MagnifyingGlassIcon
+  MagnifyingGlassIcon,
+  CpuChipIcon,
+  ExclamationTriangleIcon
 } from '@heroicons/react/24/solid';
 
 // ============================================================================
@@ -291,6 +293,10 @@ export default function App() {
   const [suAn, setSuAn] = useState(new Date());
   const [gorunum, setGorunum] = useState('panel');
 
+  const [simulasyonAktif, setSimulasyonAktif] = useState(false);
+  const [simulasyonOnayAcik, setSimulasyonOnayAcik] = useState(false); // YENİ: Onay Modalı State
+  const parkYerleriRef = useRef([]);
+
   const [toasts, setToasts] = useState([]);
   const toastTimers = useRef({});
 
@@ -338,6 +344,66 @@ export default function App() {
   const [istatistikler, setIstatistikler] = useState({
     GunlukCiro: 0, DoluAracSayisi: 0, ToplamKapasite: 10, BugunGirenArac: 0
   });
+
+  useEffect(() => {
+    parkYerleriRef.current = parkYerleri;
+  }, [parkYerleri]);
+
+  useEffect(() => {
+    let botInterval;
+    if (simulasyonAktif && isLoggedIn && gorunum === 'panel') {
+      botInterval = setInterval(async () => {
+        const doluYerSayisi = parkYerleriRef.current.filter(y => y.DoluMu).length;
+        const toplamYer = parkYerleriRef.current.length;
+        
+        if (toplamYer === 0) return; 
+
+        let aksiyon = 'GIRIS';
+        if (doluYerSayisi === 0) aksiyon = 'GIRIS';
+        else if (doluYerSayisi === toplamYer) aksiyon = 'CIKIS';
+        else aksiyon = Math.random() > 0.4 ? 'GIRIS' : 'CIKIS';
+
+        if (aksiyon === 'GIRIS') {
+          const harfler = 'ABCDEFGHIJKLMNOPRSTUVYZ';
+          const ilKodu = String(Math.floor(1 + Math.random() * 81)).padStart(2, '0');
+          const harfSayisi = Math.floor(Math.random() * 3) + 1;
+          let harfBolumu = '';
+          for (let i = 0; i < harfSayisi; i++) harfBolumu += harfler[Math.floor(Math.random() * harfler.length)];
+          const rakamSayisi = harfSayisi === 1 ? 4 : (harfSayisi === 2 ? 3 : 2);
+          let rakamBolumu = '';
+          for (let i = 0; i < rakamSayisi; i++) rakamBolumu += Math.floor(Math.random() * 10);
+          const plaka = `${ilKodu} ${harfBolumu} ${rakamBolumu}`;
+
+          try {
+            const res = await fetch('http://127.0.0.1:8080/api/giris', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ plaka })
+            });
+            const data = await res.json();
+            if (data.durum === 'BASARILI') {
+              toastEkle('basarili', `🤖 BOT: ${data.parkEdilenYer} alanına ${data.plaka} giriş yaptı.`, 2500);
+              durumuVeIstatistigiGetir();
+            }
+          } catch(e) {}
+        } else {
+          const doluYerler = parkYerleriRef.current.filter(y => y.DoluMu);
+          const rastgeleYer = doluYerler[Math.floor(Math.random() * doluYerler.length)];
+          try {
+            const res = await fetch('http://127.0.0.1:8080/api/cikis', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ plaka: rastgeleYer.MevcutPlaka })
+            });
+            const data = await res.json();
+            if (data.durum === 'BASARILI') {
+              toastEkle('basarili', `🤖 BOT: ${data.plaka} çıkış yaptı. Ödenen: ${data.toplamUcret}`, 2500);
+              durumuVeIstatistigiGetir();
+            }
+          } catch(e) {}
+        }
+      }, 3500); 
+    }
+    return () => clearInterval(botInterval);
+  }, [simulasyonAktif, isLoggedIn, gorunum]);
 
   useEffect(() => {
     const timer = setInterval(() => setSuAn(new Date()), 10000);
@@ -454,7 +520,7 @@ export default function App() {
     const harfSayisi = Math.floor(Math.random() * 3) + 1;
     let harfBolumu = '';
     for (let i = 0; i < harfSayisi; i++) harfBolumu += harfler[Math.floor(Math.random() * harfler.length)];
-    const rakamSayisi = harfSayisi === 1 ? 4 : harfSayisi === 2 ? 3 : 2;
+    const rakamSayisi = harfSayisi === 1 ? 4 : (harfSayisi === 2 ? 3 : 2);
     let rakamBolumu = '';
     for (let i = 0; i < rakamSayisi; i++) rakamBolumu += Math.floor(Math.random() * 10);
     setGirisPlakasi(`${ilKodu} ${harfBolumu} ${rakamBolumu}`);
@@ -615,9 +681,25 @@ export default function App() {
             </h1>
             <p className="text-sm text-slate-500 font-medium">Hoş geldin, <span className="text-blue-600 uppercase">{aktifKullanici}</span></p>
           </div>
-          <button onClick={cikisOnayiIste} className="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2 px-6 rounded-lg transition-colors flex items-center gap-2">
-            <ArrowRightOnRectangleIcon className="w-5 h-5" /> Sistemden Çık
-          </button>
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => {
+                if (simulasyonAktif) setSimulasyonAktif(false);
+                else setSimulasyonOnayAcik(true);
+              }} 
+              className={`font-bold py-2 px-5 rounded-lg transition-all flex items-center gap-2 shadow-sm border-2 ${
+                simulasyonAktif 
+                  ? 'bg-purple-100 text-purple-700 border-purple-300 hover:bg-purple-200' 
+                  : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
+              }`}
+            >
+              <CpuChipIcon className={`w-5 h-5 ${simulasyonAktif ? 'animate-pulse text-purple-600' : 'text-slate-400'}`} />
+              {simulasyonAktif ? '🤖 Oto-Simülasyon: AÇIK' : '🤖 Oto-Simülasyon: KAPALI'}
+            </button>
+            <button onClick={cikisOnayiIste} className="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2 px-6 rounded-lg transition-colors flex items-center gap-2">
+              <ArrowRightOnRectangleIcon className="w-5 h-5" /> Sistemden Çık
+            </button>
+          </div>
         </div>
 
         {/* İSTATİSTİK KARTLARI */}
@@ -810,6 +892,26 @@ export default function App() {
             <div className="bg-slate-100 p-4 flex justify-end gap-3 border-t border-slate-200">
               <button onClick={() => setCikisOnayAcik(false)} className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold py-2 px-5 rounded-lg transition-colors">İptal</button>
               <button onClick={sistemdenCikisYap} className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-5 rounded-lg transition-colors">Evet, Çıkış Yap</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SİMÜLASYON ONAY MODALI (YENİ EKLENDİ) */}
+      {simulasyonOnayAcik && (
+        <div className="fixed inset-0 bg-slate-900 bg-opacity-60 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+            <div className="bg-orange-500 p-5 text-white flex items-center gap-2">
+              <ExclamationTriangleIcon className="w-6 h-6" />
+              <h2 className="text-lg font-bold">Simülasyon Uyarısı</h2>
+            </div>
+            <div className="p-6 text-center">
+              <p className="text-slate-700 font-medium text-base">Oto-Simülasyon modunu başlatmak istediğinize emin misiniz?</p>
+              <p className="text-slate-400 text-sm mt-2">Bu mod, sistemi test etmek için sahte giriş-çıkışlar oluşturur. İçeride gerçek müşteri araçları varken kullanılması verileri karıştırabilir.</p>
+            </div>
+            <div className="bg-slate-100 p-4 flex justify-end gap-3 border-t border-slate-200">
+              <button onClick={() => setSimulasyonOnayAcik(false)} className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold py-2 px-5 rounded-lg transition-colors">İptal</button>
+              <button onClick={() => { setSimulasyonAktif(true); setSimulasyonOnayAcik(false); }} className="bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 px-5 rounded-lg transition-colors">Evet, Başlat</button>
             </div>
           </div>
         </div>
