@@ -1,0 +1,11 @@
+## Proje Geliştirme Günlüğü — Akıllı Otopark Yönetim Sistemi
+
+## 14. Gün – Otonom Simülasyon ve Güvenlik Mekanizmaları
+
+*Tarih: 9 Temmuz 2026*
+
+## Yaptığım Çalışmalar
+- Sisteme "Otonom Simülasyon" özelliğini kazandırmak ve testinin yapılması işlemleri.
+- Simülasyonun yanlışlıkla başlatılmasını önleyecek bir güvenlik katmanı (Onay Modalı) eklemek.
+- Bu onay modalı sayesinde gerçek veri ile sahte verilerin karışması önlendi.
+
