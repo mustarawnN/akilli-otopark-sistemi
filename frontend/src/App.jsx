@@ -21,6 +21,7 @@ import {
   CpuChipIcon,
   ExclamationTriangleIcon
 } from '@heroicons/react/24/solid';
+import musparkLogo from './assets/musparklogo.png';
 
 // ============================================================================
 // --- YEREL (NATIVE) GRAFİK BİLEŞENLERİ (Recharts Olmadan Hatasız Çizim) ---
@@ -163,18 +164,20 @@ function ReportsPage({ geriDon }) {
   });
 
   return (
-    <div className="min-h-screen bg-slate-100 p-8 font-sans text-slate-800">
+    <div className="min-h-screen bg-slate-100 p-6 font-sans text-slate-800">
       <div className="max-w-6xl mx-auto">
-        <div className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm mb-8 border-t-4 border-emerald-600">
+        <div className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm mb-6 border-t-4 border-emerald-600">
           <div className="flex items-center gap-4">
             <button onClick={geriDon} className="bg-slate-100 hover:bg-slate-200 text-slate-700 p-2.5 rounded-lg transition-colors">
               <ArrowLeftIcon className="w-5 h-5" />
             </button>
+            <img src={musparkLogo} alt="MusPark" className="h-14 w-auto select-none hidden sm:block" draggable="false" />
+            <div className="hidden sm:block h-10 w-px bg-slate-200"></div>
             <div>
-              <h1 className="text-2xl font-extrabold text-slate-800 tracking-tight flex items-center gap-2">
-                <ArrowTrendingUpIcon className="w-7 h-7 text-emerald-600" /> Finansal Raporlar
+              <h1 className="text-xl font-extrabold text-slate-800 tracking-tight flex items-center gap-2">
+                <ArrowTrendingUpIcon className="w-6 h-6 text-emerald-600" /> Finansal Raporlar
               </h1>
-              <p className="text-sm text-slate-500 font-medium">Native Ciro analizi ve trendler</p>
+              <p className="text-sm text-slate-500 font-medium">Ciro analizi ve grafikler</p>
             </div>
           </div>
           <div className="flex gap-2">
@@ -192,48 +195,48 @@ function ReportsPage({ geriDon }) {
           <div className="text-center py-20 text-slate-400 font-semibold animate-pulse">Raporlar yükleniyor...</div>
         ) : ozet && (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-              <div className="bg-white rounded-2xl shadow-sm p-6 border-l-4 border-emerald-500">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              <div className="bg-white rounded-2xl shadow-sm p-5 border-l-4 border-emerald-500">
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Bugünkü Ciro</p>
-                <p className="text-2xl font-black text-slate-800 mb-2">{Number(ozet.Bugun).toFixed(0)} <span className="text-sm text-slate-500 font-medium">TL</span></p>
+                <p className="text-xl font-black text-slate-800 mb-1">{Number(ozet.Bugun).toFixed(0)} <span className="text-sm text-slate-500 font-medium">TL</span></p>
                 <BuyumeRozeti yuzde={buyumeYuzdesi(Number(ozet.Bugun), Number(ozet.Dun))} />
               </div>
-              <div className="bg-white rounded-2xl shadow-sm p-6 border-l-4 border-blue-500">
+              <div className="bg-white rounded-2xl shadow-sm p-5 border-l-4 border-blue-500">
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Son 7 Gün</p>
-                <p className="text-2xl font-black text-slate-800 mb-2">{Number(ozet.Son7Gun).toFixed(0)} <span className="text-sm text-slate-500 font-medium">TL</span></p>
+                <p className="text-xl font-black text-slate-800 mb-1">{Number(ozet.Son7Gun).toFixed(0)} <span className="text-sm text-slate-500 font-medium">TL</span></p>
                 <BuyumeRozeti yuzde={buyumeYuzdesi(Number(ozet.Son7Gun), Number(ozet.Onceki7Gun))} />
               </div>
-              <div className="bg-white rounded-2xl shadow-sm p-6 border-l-4 border-purple-500">
+              <div className="bg-white rounded-2xl shadow-sm p-5 border-l-4 border-purple-500">
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Son 30 Gün</p>
-                <p className="text-2xl font-black text-slate-800 mb-2">{Number(ozet.Son30Gun).toFixed(0)} <span className="text-sm text-slate-500 font-medium">TL</span></p>
+                <p className="text-xl font-black text-slate-800 mb-1">{Number(ozet.Son30Gun).toFixed(0)} <span className="text-sm text-slate-500 font-medium">TL</span></p>
                 <BuyumeRozeti yuzde={buyumeYuzdesi(Number(ozet.Son30Gun), Number(ozet.Onceki30Gun))} />
               </div>
-              <div className="bg-white rounded-2xl shadow-sm p-6 border-l-4 border-orange-500">
+              <div className="bg-white rounded-2xl shadow-sm p-5 border-l-4 border-orange-500">
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Ort. İşlem Ücreti</p>
-                <p className="text-2xl font-black text-slate-800 mb-2">{Number(ozet.OrtalamaUcret).toFixed(0)} <span className="text-sm text-slate-500 font-medium">TL</span></p>
+                <p className="text-xl font-black text-slate-800 mb-1">{Number(ozet.OrtalamaUcret).toFixed(0)} <span className="text-sm text-slate-500 font-medium">TL</span></p>
                 <span className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500"><ClockIcon className="w-3.5 h-3.5" /> {Number(ozet.OrtalamaSureDakika).toFixed(0)} dk park</span>
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl shadow-sm p-6 mb-8">
+            <div className="bg-white rounded-2xl shadow-sm p-5 mb-6">
               <h2 className="text-lg font-bold text-slate-800 mb-4">Günlük Gelir Trendi</h2>
               <NativeTrendGrafigi data={trend} />
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-              <div className="bg-white rounded-2xl shadow-sm p-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+              <div className="bg-white rounded-2xl shadow-sm p-5">
                 <h2 className="text-lg font-bold text-slate-800 mb-2">Saatlik Ciro Dağılımı</h2>
                 <p className="text-xs text-slate-400 mb-4">Son 30 gün verisine göre 24 saatlik yoğunluk.</p>
                 <SaatlikGrafik veri={saatlikTam} />
               </div>
-              <div className="bg-white rounded-2xl shadow-sm p-6">
+              <div className="bg-white rounded-2xl shadow-sm p-5">
                 <h2 className="text-lg font-bold text-slate-800 mb-2">Blok Bazlı Ciro Dağılımı</h2>
                 <p className="text-xs text-slate-400 mb-4">Otopark bloklarının toplam ciroya katkısı.</p>
                 <BlokGrafigi veri={blok} />
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl shadow-sm p-6">
+            <div className="bg-white rounded-2xl shadow-sm p-5">
               <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
                 <ClipboardDocumentListIcon className="w-5 h-5 text-slate-500" />
                 En Yüksek Ücretli 10 İşlem
@@ -631,9 +634,7 @@ export default function App() {
       <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
         <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md">
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-extrabold text-blue-900 mb-2 flex items-center justify-center gap-2">
-              <TruckIcon className="w-8 h-8 text-blue-700" /> Akıllı Otopark
-            </h1>
+            <img src={musparkLogo} alt="MusPark" className="h-24 w-auto mx-auto mb-4 select-none" draggable="false" />
             <p className="text-slate-500">Sisteme erişmek için lütfen giriş yapın.</p>
           </div>
           <form onSubmit={girisYap} className="space-y-6">
@@ -671,15 +672,17 @@ export default function App() {
 
   // ANA PANEL EKRANI
   return (
-    <div className="min-h-screen bg-slate-100 p-8 font-sans text-slate-800 relative overflow-x-hidden">
+    <div className="min-h-screen bg-slate-100 p-6 font-sans text-slate-800 relative overflow-x-hidden">
       <div className="max-w-6xl mx-auto">
         {/* Üst Bar */}
-        <div className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm mb-8 border-t-4 border-blue-600">
-          <div>
-            <h1 className="text-2xl font-extrabold text-blue-900 tracking-tight flex items-center gap-2">
-              <TruckIcon className="w-7 h-7 text-blue-700" /> Otopark Yönetim Paneli
-            </h1>
-            <p className="text-sm text-slate-500 font-medium">Hoş geldin, <span className="text-blue-600 uppercase">{aktifKullanici}</span></p>
+        <div className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm mb-6 border-t-4 border-blue-600">
+          <div className="flex items-center gap-4">
+            <img src={musparkLogo} alt="MusPark" className="h-16 w-auto select-none" draggable="false" />
+            <div className="hidden sm:block h-11 w-px bg-slate-200"></div>
+            <div>
+              <h1 className="text-xl font-extrabold text-blue-900 tracking-tight">Yönetim Paneli</h1>
+              <p className="text-sm text-slate-500 font-medium">Hoş geldin, <span className="text-blue-600 uppercase">{aktifKullanici}</span></p>
+            </div>
           </div>
           <div className="flex items-center gap-3">
             <button 
@@ -703,47 +706,47 @@ export default function App() {
         </div>
 
         {/* İSTATİSTİK KARTLARI */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white rounded-2xl shadow-sm p-6 border-l-4 border-emerald-500 flex items-center justify-between hover:shadow-md transition-shadow">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div className="bg-white rounded-2xl shadow-sm p-5 border-l-4 border-emerald-500 flex items-center justify-between hover:shadow-md transition-shadow">
             <div>
               <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Günlük Toplam Ciro</p>
-              <p className="text-3xl font-black text-slate-800">{istatistikler.GunlukCiro} <span className="text-lg text-slate-500 font-medium">₺</span></p>
+              <p className="text-2xl font-black text-slate-800">{istatistikler.GunlukCiro} <span className="text-lg text-slate-500 font-medium">₺</span></p>
             </div>
-            <div className="bg-emerald-100 p-4 rounded-full"><BanknotesIcon className="w-7 h-7 text-emerald-600" /></div>
+            <div className="bg-emerald-100 p-3 rounded-full"><BanknotesIcon className="w-6 h-6 text-emerald-600" /></div>
           </div>
-          <div className="bg-white rounded-2xl shadow-sm p-6 border-l-4 border-blue-500 flex flex-col justify-center hover:shadow-md transition-shadow">
+          <div className="bg-white rounded-2xl shadow-sm p-5 border-l-4 border-blue-500 flex flex-col justify-center hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between mb-3">
               <div>
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Anlık Doluluk</p>
-                <p className="text-3xl font-black text-slate-800">{istatistikler.DoluAracSayisi} <span className="text-lg text-slate-500 font-medium">/ {istatistikler.ToplamKapasite}</span></p>
+                <p className="text-2xl font-black text-slate-800">{istatistikler.DoluAracSayisi} <span className="text-lg text-slate-500 font-medium">/ {istatistikler.ToplamKapasite}</span></p>
               </div>
-              <div className="bg-blue-100 p-4 rounded-full"><TruckIcon className="w-7 h-7 text-blue-600" /></div>
+              <div className="bg-blue-100 p-3 rounded-full"><TruckIcon className="w-6 h-6 text-blue-600" /></div>
             </div>
             <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
               <div className={`h-2.5 rounded-full transition-all duration-1000 ${progressBarRenginiGetir(dolulukYuzdesi)}`} style={{ width: `${dolulukYuzdesi}%` }}></div>
             </div>
           </div>
-          <div className="bg-white rounded-2xl shadow-sm p-6 border-l-4 border-purple-500 flex items-center justify-between hover:shadow-md transition-shadow">
+          <div className="bg-white rounded-2xl shadow-sm p-5 border-l-4 border-purple-500 flex items-center justify-between hover:shadow-md transition-shadow">
             <div>
               <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Bugün Giren Araç</p>
-              <p className="text-3xl font-black text-slate-800">{istatistikler.BugunGirenArac}</p>
+              <p className="text-2xl font-black text-slate-800">{istatistikler.BugunGirenArac}</p>
             </div>
-            <div className="bg-purple-100 p-4 rounded-full"><ChartBarIcon className="w-7 h-7 text-purple-600" /></div>
+            <div className="bg-purple-100 p-3 rounded-full"><ChartBarIcon className="w-6 h-6 text-purple-600" /></div>
           </div>
         </div>
 
         {/* BUTONLAR */}
-        <div className="flex justify-center gap-4 mb-8 flex-wrap">
-          <button onClick={aracGirisModaliAc} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-transform hover:scale-105 flex items-center gap-2">
+        <div className="flex justify-center gap-4 mb-6 flex-wrap">
+          <button onClick={aracGirisModaliAc} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-6 rounded-full shadow-lg transition-transform hover:scale-105 flex items-center gap-2">
             <PlusCircleIcon className="w-5 h-5" /> Yeni Araç Al
           </button>
-          <button onClick={() => setBiletModalAcik(true)} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-transform hover:scale-105 flex items-center gap-2">
+          <button onClick={() => setBiletModalAcik(true)} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-6 rounded-full shadow-lg transition-transform hover:scale-105 flex items-center gap-2">
             <TicketIcon className="w-5 h-5" /> İçerideki Araçlar
           </button>
-          <button onClick={() => setGorunum('raporlar')} className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-transform hover:scale-105 flex items-center gap-2">
+          <button onClick={() => setGorunum('raporlar')} className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-6 rounded-full shadow-lg transition-transform hover:scale-105 flex items-center gap-2">
             <ArrowTrendingUpIcon className="w-5 h-5" /> Raporlar
           </button>
-          <button onClick={fiyatlandirmaModaliniAc} className="bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-transform hover:scale-105 flex items-center gap-2">
+          <button onClick={fiyatlandirmaModaliniAc} className="bg-amber-500 hover:bg-amber-600 text-white font-bold py-2.5 px-6 rounded-full shadow-lg transition-transform hover:scale-105 flex items-center gap-2">
             <CurrencyDollarIcon className="w-5 h-5" /> Fiyatlandırma
           </button>
         </div>
@@ -766,7 +769,7 @@ export default function App() {
         </div>
 
         {/* YENİ TASARIM: OTOPARK IZGARASI */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           {filtrelenmisParkYerleri.map((yer) => {
             if (yer.DoluMu) {
               const sureBilgisi = sureHesapla(yer.SonGuncelleme);
@@ -774,7 +777,7 @@ export default function App() {
 
               return (
                 <div key={yer.ParkYeriID} className="relative bg-red-50 border-l-8 border-red-500 rounded-xl p-5 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 flex flex-col h-full">
-                  <h2 className="text-3xl font-extrabold text-gray-800 mb-4">{yer.ParkYeriAdi}</h2>
+                  <h2 className="text-2xl font-extrabold text-gray-800 mb-3">{yer.ParkYeriAdi}</h2>
                   
                   <div className="inline-flex items-center self-start bg-white text-gray-700 px-3 py-1.5 rounded-md text-sm font-bold tracking-widest mb-4 border border-gray-300 shadow-sm">
                     <TruckIcon className="w-4 h-4 mr-1.5 text-blue-600" /> {yer.MevcutPlaka}
@@ -803,7 +806,7 @@ export default function App() {
             } else {
               return (
                 <div key={yer.ParkYeriID} className="relative bg-green-50 border-l-8 border-green-500 rounded-xl p-5 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 flex flex-col h-full">
-                  <h2 className="text-3xl font-extrabold text-gray-800 mb-4">{yer.ParkYeriAdi}</h2>
+                  <h2 className="text-2xl font-extrabold text-gray-800 mb-3">{yer.ParkYeriAdi}</h2>
                   <div className="flex-1 flex items-center justify-center py-6">
                     <span className="bg-green-100 text-green-700 px-6 py-2 rounded-full font-black text-lg border border-green-200 shadow-sm flex items-center gap-2">
                       <CheckBadgeIcon className="w-6 h-6 text-green-600 animate-pulse" /> BOŞ
