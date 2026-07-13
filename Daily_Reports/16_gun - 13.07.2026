@@ -1,0 +1,19 @@
+# 🅿️ MusPark - Akıllı Otopark Yönetim Sistemi
+
+Bu güncelleme ile sistemin görsel arayüzü ve finansal analiz yetenekleri büyük ölçüde geliştirilmiştir.
+
+## 🚀 Neler Yeni?
+
+### 1. Modern Otopark Görünümü (UI/UX)
+*   **Kuş Bakışı Modern Tasarım:** Otopark kapasitesi ölçeklenebilir hale getirildi. Daha ferah ve kurumsal bir ızgara yapısına geçildi.
+*   **Gerçekçi TR Plaka:** Araç plakaları artık yatay, mavi şeritli ve kurumsal kimliğe uygun bir tasarımla çok daha net okunabilir hale getirildi.
+*   **Detaylı Yan Panel (Drawer):** Herhangi bir park yerine tıklandığında ekranı terk etmeden detayları (Giriş saati, süre, güncel ücret) görebileceğin sağdan açılan şık bir panel eklendi.
+
+### 2. Gelişmiş İş Zekası (BI) Analitiği
+*   **Tarife Kırılımı:** "Günlük Gelir Trendi" grafiği kaldırıldı ve yerine çok daha stratejik olan **Kalış Süresi ve Tarife Dağılımı** eklendi.
+*   **Kritik Metrikler:** Artık otoparktaki yoğunluğun hangi süre aralıklarında (0-1 saat, 1-2 saat vb.) gerçekleştiğini ve hangi tarifeden ne kadar ciro elde edildiğini yüzde bazlı olarak görebiliyoruz.
+
+
+## 🛠 Teknik Notlar
+*   **Backend:** Node.js sunucusuna `/api/raporlar/tarife-dagilimi` endpoint'i eklendi. SQL veritabanından `CASE WHEN` yapısı ile kalış sürelerine göre gruplandırma yapıldı.
+*   **Frontend:** React `useState` ve `fetch` kullanımı optimize edilerek performans artırıldı. CSS animasyonları (slideInRight) ile kullanıcı deneyimi iyileştirildi.
