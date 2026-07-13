@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   TruckIcon,
+  MapPinIcon,
   BanknotesIcon,
   ChartBarIcon,
   TicketIcon,
@@ -19,12 +20,13 @@ import {
   CheckBadgeIcon,
   MagnifyingGlassIcon,
   CpuChipIcon,
-  ExclamationTriangleIcon
+  ExclamationTriangleIcon,
+  PresentationChartLineIcon
 } from '@heroicons/react/24/solid';
 import musparkLogo from './assets/musparklogo.png';
 
 // ============================================================================
-// --- YEREL (NATIVE) GRAFİK BİLEŞENLERİ (Recharts Olmadan Hatasız Çizim) ---
+// --- YEREL (NATIVE) GRAFİK BİLEŞENLERİ ---
 // ============================================================================
 const BLOK_RENKLERI = ['#2563eb', '#7c3aed', '#059669', '#d97706', '#dc2626', '#0891b2'];
 
@@ -38,20 +40,47 @@ function BuyumeRozeti({ yuzde }) {
   );
 }
 
-function NativeTrendGrafigi({ data }) {
-  if (!data || data.length === 0) return <div className="h-64 flex items-center justify-center text-slate-400">Veri bulunmuyor</div>;
-  const maxCiro = Math.max(...data.map(d => d.Ciro), 100);
+// YENİ: Tarife (Kalış Süresi) Kırılımı Grafiği
+function TarifeKrilimiGrafigi({ veri }) {
+  if (!veri || veri.length === 0) return <div className="h-64 flex items-center justify-center text-slate-400 font-medium">Bu tarih aralığında yeterli veri yok</div>;
+
+  const maxIslem = Math.max(...veri.map(d => d.IslemSayisi), 1);
+  const toplamCiro = veri.reduce((sum, d) => sum + Number(d.ToplamCiro), 0);
+  const toplamIslem = veri.reduce((sum, d) => sum + Number(d.IslemSayisi), 0);
+
   return (
-    <div className="h-64 flex items-end gap-1 w-full pt-4 border-b border-slate-200">
-      {data.map((item, index) => {
-        const height = (item.Ciro / maxCiro) * 100;
+    <div className="flex flex-col gap-5 mt-4">
+      {veri.map((item, i) => {
+        const yuzde = (item.IslemSayisi / maxIslem) * 100;
+        const ciroKatkisi = toplamCiro > 0 ? ((Number(item.ToplamCiro) / toplamCiro) * 100).toFixed(1) : 0;
+        const islemKatkisi = toplamIslem > 0 ? ((Number(item.IslemSayisi) / toplamIslem) * 100).toFixed(1) : 0;
+        
         return (
-          <div key={index} className="group relative flex-1 flex flex-col justify-end items-center h-full">
-            <div className="w-full bg-blue-500 rounded-t-sm hover:bg-blue-400 transition-all cursor-pointer" style={{ height: `${height}%`, minHeight: height > 0 ? '4px' : '0' }}></div>
-            <div className="absolute bottom-full mb-2 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-800 text-white text-xs py-1 px-2 rounded pointer-events-none whitespace-nowrap z-10 shadow-lg">
-              {item.Etiket || item.Tarih} <br/> {Number(item.Ciro).toFixed(0)} ₺
+          <div key={i} className="group flex flex-col gap-2 relative">
+            <div className="flex justify-between items-center text-sm">
+              <span className="font-extrabold text-slate-700 flex items-center gap-2">
+                <ClockIcon className="w-4 h-4 text-blue-500" />
+                {item.Tarife}
+              </span>
+              <div className="flex items-center gap-6 text-right">
+                <span className="text-slate-500 font-medium w-24 text-left">
+                  <strong className="text-slate-800">{item.IslemSayisi}</strong> araç <span className="text-[10px] text-slate-400">({islemKatkisi}%)</span>
+                </span>
+                <span className="w-28 text-emerald-600 font-black text-right">
+                  {Number(item.ToplamCiro).toFixed(0)} ₺ <span className="text-[10px] text-emerald-400 bg-emerald-50 px-1 py-0.5 rounded ml-1">%{ciroKatkisi}</span>
+                </span>
+              </div>
             </div>
-            <span className="text-[9px] text-slate-400 mt-2 rotate-45 md:rotate-0 origin-left">{index % 2 === 0 ? (item.Etiket || item.Tarih).substring(5) : ''}</span>
+            
+            <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden shadow-inner flex">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-blue-400 to-blue-600 transition-all duration-1000 shadow-sm relative"
+                style={{ width: `${yuzde}%` }}
+              >
+                {/* Parlama Efekti */}
+                <div className="absolute top-0 bottom-0 left-0 right-0 bg-white opacity-20"></div>
+              </div>
+            </div>
           </div>
         );
       })}
@@ -96,7 +125,7 @@ function BlokGrafigi({ veri }) {
     <div className="flex flex-col sm:flex-row items-center justify-center gap-8 mt-4 h-52">
       <div className="w-40 h-40 rounded-full shadow-sm relative shrink-0 transition-transform hover:scale-105" style={{ background: `conic-gradient(${gradientStr})` }}>
         <div className="absolute inset-4 bg-white rounded-full shadow-inner flex items-center justify-center">
-          <span className="text-xs font-bold text-slate-400">Blok<br/>Ciro</span>
+          <span className="text-xs font-bold text-slate-400 text-center">Blok<br/>Ciro</span>
         </div>
       </div>
       <div className="flex flex-col gap-2 w-full sm:w-auto">
@@ -118,7 +147,7 @@ function BlokGrafigi({ veri }) {
 // ==========================================
 function ReportsPage({ geriDon }) {
   const [ozet, setOzet] = useState(null);
-  const [trend, setTrend] = useState([]);
+  const [tarifeDagilimi, setTarifeDagilimi] = useState([]);
   const [saatlik, setSaatlik] = useState([]);
   const [blok, setBlok] = useState([]);
   const [enKarli, setEnKarli] = useState([]);
@@ -132,15 +161,15 @@ function ReportsPage({ geriDon }) {
     setYukleniyor(true); setHata('');
     try {
       const zamanDamgasi = new Date().getTime();
-      const [ozetRes, trendRes, saatlikRes, blokRes, karliRes] = await Promise.all([
+      const [ozetRes, tarifeRes, saatlikRes, blokRes, karliRes] = await Promise.all([
         fetch(`${API_BASE}/api/raporlar/ozet?t=${zamanDamgasi}`),
-        fetch(`${API_BASE}/api/raporlar/trend?gun=${gunAraligi}&t=${zamanDamgasi}`),
+        fetch(`${API_BASE}/api/raporlar/tarife-dagilimi?t=${zamanDamgasi}`), // YENİ API ÇAĞRISI
         fetch(`${API_BASE}/api/raporlar/saatlik?t=${zamanDamgasi}`),
         fetch(`${API_BASE}/api/raporlar/blok?t=${zamanDamgasi}`),
         fetch(`${API_BASE}/api/raporlar/en-karli-islemler?t=${zamanDamgasi}`),
       ]);
       setOzet(await ozetRes.json());
-      setTrend(await trendRes.json());
+      setTarifeDagilimi(await tarifeRes.json());
       setSaatlik(await saatlikRes.json());
       setBlok(await blokRes.json());
       setEnKarli(await karliRes.json());
@@ -177,7 +206,7 @@ function ReportsPage({ geriDon }) {
               <h1 className="text-xl font-extrabold text-slate-800 tracking-tight flex items-center gap-2">
                 <ArrowTrendingUpIcon className="w-6 h-6 text-emerald-600" /> Finansal Raporlar
               </h1>
-              <p className="text-sm text-slate-500 font-medium">Ciro analizi ve grafikler</p>
+              <p className="text-sm text-slate-500 font-medium">İş zekası ve gelir analizi</p>
             </div>
           </div>
           <div className="flex gap-2">
@@ -218,9 +247,15 @@ function ReportsPage({ geriDon }) {
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl shadow-sm p-5 mb-6">
-              <h2 className="text-lg font-bold text-slate-800 mb-4">Günlük Gelir Trendi</h2>
-              <NativeTrendGrafigi data={trend} />
+            {/* YENİ: KALIŞ SÜRESİ VE CİRO KIRILIMI ALANI */}
+            <div className="bg-white rounded-2xl shadow-sm p-6 mb-6">
+              <div className="flex items-center gap-2 mb-2">
+                <PresentationChartLineIcon className="w-6 h-6 text-blue-600" />
+                <h2 className="text-xl font-bold text-slate-800">Kalış Süresi ve Tarife Dağılımı</h2>
+              </div>
+              <p className="text-sm text-slate-500 mb-6 font-medium">Müşterilerin otoparkı hangi saat aralıklarında kullandığını ve gelirin hangi tarifeden elde edildiğini gösterir.</p>
+              
+              <TarifeKrilimiGrafigi veri={tarifeDagilimi} />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
@@ -282,6 +317,9 @@ export default function App() {
   const [sifre, setSifre] = useState('');
   const [loginHata, setLoginHata] = useState('');
   const [aktifKullanici, setAktifKullanici] = useState('');
+  
+  const [seciliParkYeri, setSeciliParkYeri] = useState(null);
+
   const [aracGirisModalAcik, setAracGirisModalAcik] = useState(false);
   const [girisPlakasi, setGirisPlakasi] = useState('');
   const [girisHata, setGirisHata] = useState('');
@@ -297,7 +335,7 @@ export default function App() {
   const [gorunum, setGorunum] = useState('panel');
 
   const [simulasyonAktif, setSimulasyonAktif] = useState(false);
-  const [simulasyonOnayAcik, setSimulasyonOnayAcik] = useState(false); // YENİ: Onay Modalı State
+  const [simulasyonOnayAcik, setSimulasyonOnayAcik] = useState(false);
   const parkYerleriRef = useRef([]);
 
   const [toasts, setToasts] = useState([]);
@@ -589,7 +627,7 @@ export default function App() {
     const farkMs = suAn - giris;
     const toplamDakika = Math.max(0, Math.floor(farkMs / 60000));
     
-    const gun = Math.floor(toplamDakika / 1440); // 24 saat = 1440 dakika
+    const gun = Math.floor(toplamDakika / 1440);
     const kalanDakikaGunSonrasi = toplamDakika % 1440;
     
     const saat = Math.floor(kalanDakikaGunSonrasi / 60);
@@ -618,7 +656,6 @@ export default function App() {
     return Number(fiyatlandirma.Tarife12_24Saat) + (ekGun * Number(fiyatlandirma.Tarife24SaatSonrasiGunluk));
   };
 
-  // YENİ: Arama çubuğu filtreleme
   const filtrelenmisParkYerleri = parkYerleri.filter(yer => {
     if (aramaMetni.trim() === '') return true;
     const arama = aramaMetni.toLowerCase();
@@ -673,7 +710,7 @@ export default function App() {
   // ANA PANEL EKRANI
   return (
     <div className="min-h-screen bg-slate-100 p-6 font-sans text-slate-800 relative overflow-x-hidden">
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         {/* Üst Bar */}
         <div className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm mb-6 border-t-4 border-blue-600">
           <div className="flex items-center gap-4">
@@ -697,10 +734,10 @@ export default function App() {
               }`}
             >
               <CpuChipIcon className={`w-5 h-5 ${simulasyonAktif ? 'animate-pulse text-purple-600' : 'text-slate-400'}`} />
-              {simulasyonAktif ? '🤖 Oto-Simülasyon: AÇIK' : '🤖 Oto-Simülasyon: KAPALI'}
+              <span className="hidden sm:inline">{simulasyonAktif ? '🤖 Oto-Simülasyon: AÇIK' : '🤖 Oto-Simülasyon: KAPALI'}</span>
             </button>
             <button onClick={cikisOnayiIste} className="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2 px-6 rounded-lg transition-colors flex items-center gap-2">
-              <ArrowRightOnRectangleIcon className="w-5 h-5" /> Sistemden Çık
+              <ArrowRightOnRectangleIcon className="w-5 h-5" /> <span className="hidden sm:inline">Çıkış</span>
             </button>
           </div>
         </div>
@@ -751,7 +788,7 @@ export default function App() {
           </button>
         </div>
 
-        {/* YENİ: ARAMA ÇUBUĞU */}
+        {/* ARAMA ÇUBUĞU */}
         <div className="mb-6 flex flex-col sm:flex-row justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200 gap-4">
           <div className="relative w-full sm:w-1/2 md:w-1/3">
             <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
@@ -768,59 +805,135 @@ export default function App() {
           </div>
         </div>
 
-        {/* YENİ TASARIM: OTOPARK IZGARASI */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-          {filtrelenmisParkYerleri.map((yer) => {
-            if (yer.DoluMu) {
-              const sureBilgisi = sureHesapla(yer.SonGuncelleme);
-              const anlikUcret = anlikUcretHesapla(sureBilgisi.dakika);
-
-              return (
-                <div key={yer.ParkYeriID} className="relative bg-red-50 border-l-8 border-red-500 rounded-xl p-5 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 flex flex-col h-full">
-                  <h2 className="text-2xl font-extrabold text-gray-800 mb-3">{yer.ParkYeriAdi}</h2>
-                  
-                  <div className="inline-flex items-center self-start bg-white text-gray-700 px-3 py-1.5 rounded-md text-sm font-bold tracking-widest mb-4 border border-gray-300 shadow-sm">
-                    <TruckIcon className="w-4 h-4 mr-1.5 text-blue-600" /> {yer.MevcutPlaka}
-                  </div>
-
-                  <div className="space-y-2.5 text-sm text-gray-600 mb-6 flex-1">
-                    <p className="flex items-center"><ClockIcon className="w-4 h-4 mr-1.5 text-gray-400" /> <strong className="text-gray-700 mr-1">Giriş:</strong> {saatFormatla(yer.SonGuncelleme)}</p>
-                    <p className="flex items-center">
-                      <svg className="w-4 h-4 mr-1.5 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
-                      </svg>
-                      <strong className="text-gray-700 mr-1">Süre:</strong> <span className="text-gray-900 font-semibold">{sureBilgisi.metin}</span>
-                    </p>
-                    <p className="flex items-center"><BanknotesIcon className="w-4 h-4 mr-1.5 text-emerald-500" /> <strong className="text-gray-700 mr-1">Ücret:</strong> <span className="text-emerald-600 font-black text-lg">{anlikUcret} ₺</span></p>
-                    <p className="flex items-center gap-1.5 mt-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-red-500 shadow-[0_0_5px_rgba(239,68,68,0.8)]"></span>
-                      <span className="text-gray-700 font-semibold">Durum:</span> <span className="font-bold text-gray-900">Parkta</span>
-                    </p>
-                  </div>
-                  
-                  <button onClick={() => araciCikar(yer.MevcutPlaka)} className="w-full bg-red-600 hover:bg-red-700 text-white py-2.5 rounded-lg font-bold shadow-sm transition-colors mt-auto">
-                    Çıkış Yap
-                  </button>
+        {/* YENİ TASARIM: MODERN, ŞIK VE YATAY PLAKALI KARTLAR */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+          {filtrelenmisParkYerleri.map((yer) => (
+            yer.DoluMu ? (
+              <div 
+                key={yer.ParkYeriID} 
+                onClick={() => setSeciliParkYeri(yer)} 
+                className="cursor-pointer relative bg-white border border-slate-200 rounded-xl p-4 shadow-sm hover:shadow-md hover:border-blue-400 hover:ring-2 hover:ring-blue-100 transition-all flex flex-col items-center justify-between h-32 group"
+              >
+                {/* Park Yeri İsmi ve Durum Işığı */}
+                <div className="w-full flex justify-between items-center mb-2">
+                  <span className="text-lg font-black text-slate-700 group-hover:text-blue-600 transition-colors">{yer.ParkYeriAdi}</span>
+                  <span className="w-2.5 h-2.5 rounded-full bg-red-500 shadow-[0_0_5px_rgba(239,68,68,0.6)] animate-pulse"></span>
                 </div>
-              );
-            } else {
-              return (
-                <div key={yer.ParkYeriID} className="relative bg-green-50 border-l-8 border-green-500 rounded-xl p-5 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 flex flex-col h-full">
-                  <h2 className="text-2xl font-extrabold text-gray-800 mb-3">{yer.ParkYeriAdi}</h2>
-                  <div className="flex-1 flex items-center justify-center py-6">
-                    <span className="bg-green-100 text-green-700 px-6 py-2 rounded-full font-black text-lg border border-green-200 shadow-sm flex items-center gap-2">
-                      <CheckBadgeIcon className="w-6 h-6 text-green-600 animate-pulse" /> BOŞ
-                    </span>
+                
+                {/* Gerçekçi Şık TR Plaka Tasarımı (Yatay) */}
+                <div className="flex items-center w-full max-w-[130px] h-9 bg-white rounded border-2 border-slate-300 shadow-sm overflow-hidden transform group-hover:scale-105 transition-transform">
+                  <div className="bg-blue-600 h-full w-5 flex flex-col items-center justify-end pb-[2px] shrink-0">
+                    <span className="text-white text-[7px] font-bold leading-none">TR</span>
                   </div>
-                  <button onClick={aracGirisModaliAc} className="w-full bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-lg font-bold shadow-sm transition-colors mt-auto">
-                    Yeni Araç
-                  </button>
+                  <div className="flex-1 text-center font-black text-slate-800 text-sm tracking-wider px-1">
+                    {yer.MevcutPlaka}
+                  </div>
                 </div>
-              );
-            }
-          })}
+
+                {/* Ufak Detay */}
+                <div className="w-full text-center mt-2">
+                  <span className="text-xs font-semibold text-slate-400 flex items-center justify-center gap-1">
+                    <MapPinIcon className="w-3.5 h-3.5"/> Park Halinde
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div 
+                key={yer.ParkYeriID} 
+                onClick={() => setSeciliParkYeri(yer)} 
+                className="cursor-pointer relative bg-slate-50 border-2 border-dashed border-emerald-300 rounded-xl p-4 shadow-sm hover:shadow-md hover:bg-emerald-50 hover:border-emerald-400 transition-all flex flex-col items-center justify-between h-32 group"
+              >
+                {/* Park Yeri İsmi */}
+                <div className="w-full flex justify-between items-center mb-2">
+                  <span className="text-lg font-black text-slate-400 group-hover:text-emerald-700 transition-colors">{yer.ParkYeriAdi}</span>
+                  <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                </div>
+
+                {/* Boş İkonu */}
+                <div className="flex-1 flex flex-col items-center justify-center">
+                  <CheckBadgeIcon className="w-8 h-8 text-emerald-400 group-hover:scale-110 transition-transform mb-1" />
+                  <span className="text-emerald-600 font-bold text-sm tracking-widest">MÜSAİT</span>
+                </div>
+              </div>
+            )
+          ))}
         </div>
       </div>
+
+      {/* DETAY DRAWER (SAĞDAN AÇILAN PANEL) */}
+      {seciliParkYeri && (
+        <div className="fixed inset-0 z-[60] flex justify-end">
+          {/* Arka plan karartması */}
+          <div className="absolute inset-0 bg-slate-900 bg-opacity-40 transition-opacity" onClick={() => setSeciliParkYeri(null)}></div>
+          
+          {/* Drawer Paneli */}
+          <div className="relative w-full max-w-sm bg-white h-full shadow-2xl flex flex-col animate-[slideInRight_0.3s_ease-out]">
+            <div className={`p-5 text-white flex justify-between items-center ${seciliParkYeri.DoluMu ? 'bg-red-600' : 'bg-emerald-600'}`}>
+              <h2 className="text-xl font-bold flex items-center gap-2">
+                {seciliParkYeri.DoluMu ? <TruckIcon className="w-6 h-6"/> : <CheckBadgeIcon className="w-6 h-6"/>}
+                {seciliParkYeri.ParkYeriAdi} Detayları
+              </h2>
+              <button onClick={() => setSeciliParkYeri(null)} className="text-white hover:text-slate-200 font-bold text-3xl leading-none">&times;</button>
+            </div>
+
+            <div className="p-6 flex-1 overflow-y-auto">
+              {seciliParkYeri.DoluMu ? (
+                <div className="space-y-6">
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-center shadow-sm">
+                    <p className="text-sm text-slate-500 font-bold mb-3">Araç Plakası</p>
+                    {/* TR Plaka Drawer İçi */}
+                    <div className="flex items-center w-full max-w-[200px] h-12 bg-white rounded border-2 border-slate-300 shadow-sm overflow-hidden mx-auto">
+                      <div className="bg-blue-600 h-full w-8 flex flex-col items-center justify-end pb-1 shrink-0">
+                        <span className="text-white text-[10px] font-bold leading-none">TR</span>
+                      </div>
+                      <div className="flex-1 text-center font-black text-slate-800 text-xl tracking-widest px-1">
+                        {seciliParkYeri.MevcutPlaka}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+                      <span className="text-slate-500 font-medium flex items-center gap-1.5"><ClockIcon className="w-4 h-4"/> Giriş Saati</span>
+                      <span className="font-bold text-slate-800">{saatFormatla(seciliParkYeri.SonGuncelleme)}</span>
+                    </div>
+                    <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+                      <span className="text-slate-500 font-medium flex items-center gap-1.5">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+                        </svg>
+                        İçerideki Süre
+                      </span>
+                      <span className="font-bold text-slate-800">{sureHesapla(seciliParkYeri.SonGuncelleme).metin}</span>
+                    </div>
+                    <div className="flex justify-between items-center pt-2">
+                      <span className="text-slate-500 font-bold flex items-center gap-1.5"><BanknotesIcon className="w-5 h-5 text-emerald-500"/> Güncel Ücret</span>
+                      <span className="font-black text-emerald-600 text-2xl">{anlikUcretHesapla(sureHesapla(seciliParkYeri.SonGuncelleme).dakika)} ₺</span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full text-center opacity-80">
+                  <div className="bg-emerald-100 p-4 rounded-full mb-4">
+                    <CheckBadgeIcon className="w-16 h-16 text-emerald-600" />
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-700">Bu Alan Boş</h3>
+                  <p className="text-slate-500 mt-2 text-sm">Bu park yerine yeni bir araç girişi yapabilirsiniz.</p>
+                </div>
+              )}
+            </div>
+
+            <div className="p-5 bg-slate-50 border-t border-slate-200 flex gap-3">
+              <button onClick={() => setSeciliParkYeri(null)} className="flex-1 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 font-bold py-3 rounded-lg transition-colors shadow-sm">Kapat</button>
+              {seciliParkYeri.DoluMu ? (
+                <button onClick={() => { araciCikar(seciliParkYeri.MevcutPlaka); setSeciliParkYeri(null); }} className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-lg transition-colors shadow-md">Çıkış Yap</button>
+              ) : (
+                <button onClick={() => { setSeciliParkYeri(null); aracGirisModaliAc(); }} className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-lg transition-colors shadow-md">Yeni Araç Al</button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ARAÇ GİRİŞİ MODALI */}
       {aracGirisModalAcik && (
@@ -900,7 +1013,7 @@ export default function App() {
         </div>
       )}
 
-      {/* SİMÜLASYON ONAY MODALI (YENİ EKLENDİ) */}
+      {/* SİMÜLASYON ONAY MODALI */}
       {simulasyonOnayAcik && (
         <div className="fixed inset-0 bg-slate-900 bg-opacity-60 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
@@ -994,11 +1107,13 @@ export default function App() {
         </div>
       )}
 
-      {/* TOAST BİLDİRİM STİLLERİ */}
+      {/* TOAST VE DRAWER ANIMASYON STİLLERİ */}
       <style>{`
         @keyframes toastGiris { from { transform: translateX(110%) scale(0.95); opacity: 0; } to { transform: translateX(0) scale(1); opacity: 1; } }
         @keyframes toastCikis { from { transform: translateX(0) scale(1); opacity: 1; max-height: 220px; margin-bottom: 14px; } to { transform: translateX(110%) scale(0.95); opacity: 0; max-height: 0; margin-bottom: 0; } }
         @keyframes toastIlerleme { from { width: 100%; } to { width: 0%; } }
+        @keyframes slideInRight { from { transform: translateX(100%); } to { transform: translateX(0); } }
+        
         .toast-giris { animation: toastGiris 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
         .toast-cikis { animation: toastCikis 0.25s ease-in forwards; }
         .toast-ilerleme-cubugu { animation-name: toastIlerleme; animation-timing-function: linear; animation-fill-mode: forwards; }

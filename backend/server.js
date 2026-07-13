@@ -412,4 +412,47 @@ app.put('/api/fiyatlandirma', async (req, res) => {
         res.status(500).json({ durum: 'HATA', mesaj: 'Fiyatlandırma güncellenemedi', detay: err.message });
     }
 });
+
+
+
+// --- 6) TARİFE (KALIŞ SÜRESİ) DAĞILIMI (Son 30 Gün) ---
+app.get('/api/raporlar/tarife-dagilimi', async (req, res) => {
+    try {
+        const pool = await poolPromise;
+        const sonuc = await pool.request().query(`
+            SELECT
+                CASE
+                    WHEN DATEDIFF(minute, GirisSaati, CikisSaati) <= 30 THEN '0-30 Dk (Ücretsiz)'
+                    WHEN DATEDIFF(minute, GirisSaati, CikisSaati) <= 60 THEN '0 - 1 Saat'
+                    WHEN DATEDIFF(minute, GirisSaati, CikisSaati) <= 120 THEN '1 - 2 Saat'
+                    WHEN DATEDIFF(minute, GirisSaati, CikisSaati) <= 240 THEN '2 - 4 Saat'
+                    WHEN DATEDIFF(minute, GirisSaati, CikisSaati) <= 480 THEN '4 - 8 Saat'
+                    WHEN DATEDIFF(minute, GirisSaati, CikisSaati) <= 720 THEN '8 - 12 Saat'
+                    WHEN DATEDIFF(minute, GirisSaati, CikisSaati) <= 1440 THEN '12 - 24 Saat'
+                    ELSE '24 Saati Aşanlar'
+                END AS Tarife,
+                COUNT(*) AS IslemSayisi,
+                ISNULL(SUM(ToplamUcret), 0) AS ToplamCiro,
+                MIN(DATEDIFF(minute, GirisSaati, CikisSaati)) AS Siralama
+            FROM GirisCikisKayitlari
+            WHERE CikisSaati IS NOT NULL
+              AND CikisSaati >= DATEADD(day, -30, CAST(GETDATE() AS DATE))
+            GROUP BY
+                CASE
+                    WHEN DATEDIFF(minute, GirisSaati, CikisSaati) <= 30 THEN '0-30 Dk (Ücretsiz)'
+                    WHEN DATEDIFF(minute, GirisSaati, CikisSaati) <= 60 THEN '0 - 1 Saat'
+                    WHEN DATEDIFF(minute, GirisSaati, CikisSaati) <= 120 THEN '1 - 2 Saat'
+                    WHEN DATEDIFF(minute, GirisSaati, CikisSaati) <= 240 THEN '2 - 4 Saat'
+                    WHEN DATEDIFF(minute, GirisSaati, CikisSaati) <= 480 THEN '4 - 8 Saat'
+                    WHEN DATEDIFF(minute, GirisSaati, CikisSaati) <= 720 THEN '8 - 12 Saat'
+                    WHEN DATEDIFF(minute, GirisSaati, CikisSaati) <= 1440 THEN '12 - 24 Saat'
+                    ELSE '24 Saati Aşanlar'
+                END
+            ORDER BY Siralama ASC
+        `);
+        res.json(sonuc.recordset);
+    } catch (err) {
+        res.status(500).json({ durum: 'HATA', mesaj: 'Tarife verisi getirilemedi', detay: err.message });
+    }
+});
 app.listen(8080, () => console.log('Sunucu 8080 portunda çalışıyor.'));
