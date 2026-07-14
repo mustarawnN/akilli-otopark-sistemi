@@ -30,6 +30,7 @@ const poolPromise = new sql.ConnectionPool(dbConfig)
         console.error('SQL BAĞLANTI HATASI:', err.message);
         process.exit(1);
     });
+
 function ucretHesapla(dakika, ayar) {
     if (dakika <= 30) return 0;
     if (dakika <= 60) return Number(ayar.Tarife0_1Saat);
@@ -49,6 +50,7 @@ async function fiyatlandirmaGetir(pool) {
     const sonuc = await pool.request().query('SELECT TOP 1 * FROM FiyatlandirmaAyarlari WHERE ID = 1');
     return sonuc.recordset[0];
 }
+
 // --- İSTATİSTİK (DASHBOARD) API'Sİ ---
 app.get('/api/istatistik', async (req, res) => {
     try {
@@ -362,6 +364,7 @@ app.get('/api/raporlar/en-karli-islemler', async (req, res) => {
         res.status(500).json({ durum: 'HATA', mesaj: 'İşlemler getirilemedi', detay: err.message });
     }
 });
+
 // --- FİYATLANDIRMA: MEVCUT TARİFEYİ GETİR ---
 app.get('/api/fiyatlandirma', async (req, res) => {
     try {
@@ -455,4 +458,29 @@ app.get('/api/raporlar/tarife-dagilimi', async (req, res) => {
         res.status(500).json({ durum: 'HATA', mesaj: 'Tarife verisi getirilemedi', detay: err.message });
     }
 });
+
+// --- YENİ: İŞLEM GEÇMİŞİ API'Sİ (Son 50 Kayıt) ---
+app.get('/api/islem-gecmisi', async (req, res) => {
+    try {
+        const pool = await poolPromise;
+        const sonuc = await pool.request().query(`
+            SELECT TOP 50
+                g.KayitID,
+                g.Plaka,
+                p.ParkYeriAdi,
+                CONVERT(varchar(16), g.GirisSaati, 120) AS GirisSaati,
+                CONVERT(varchar(16), g.CikisSaati, 120) AS CikisSaati,
+                DATEDIFF(minute, g.GirisSaati, g.CikisSaati) AS SureDakika,
+                g.ToplamUcret
+            FROM GirisCikisKayitlari g
+            JOIN ParkYerleri p ON p.ParkYeriID = g.ParkYeriID
+            WHERE g.CikisSaati IS NOT NULL
+            ORDER BY g.CikisSaati DESC
+        `);
+        res.json(sonuc.recordset);
+    } catch (err) {
+        res.status(500).json({ durum: 'HATA', mesaj: 'İşlem geçmişi getirilemedi', detay: err.message });
+    }
+});
+
 app.listen(8080, () => console.log('Sunucu 8080 portunda çalışıyor.'));

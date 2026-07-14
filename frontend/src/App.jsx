@@ -341,6 +341,10 @@ export default function App() {
   const [toasts, setToasts] = useState([]);
   const toastTimers = useRef({});
 
+  // YENİ EKLENEN STATE'LER
+  const [islemGecmisiModalAcik, setIslemGecmisiModalAcik] = useState(false);
+  const [islemGecmisi, setIslemGecmisi] = useState([]);
+
   const toastKaldir = (id) => {
     if (toastTimers.current[id]) {
       clearTimeout(toastTimers.current[id].timeoutId);
@@ -615,6 +619,18 @@ export default function App() {
     }
   };
 
+  // YENİ EKLENEN İŞLEM GEÇMİŞİ FONKSİYONU
+  const islemGecmisiniGetir = async () => {
+    try {
+      const res = await fetch('http://127.0.0.1:8080/api/islem-gecmisi');
+      const data = await res.json();
+      setIslemGecmisi(data);
+      setIslemGecmisiModalAcik(true);
+    } catch (error) {
+      toastEkle('hata', 'İşlem geçmişi alınamadı!');
+    }
+  };
+
   const saatFormatla = (tarihString) => {
     if (!tarihString) return "Bilinmiyor";
     const tarih = new Date(tarihString);
@@ -779,6 +795,10 @@ export default function App() {
           </button>
           <button onClick={() => setBiletModalAcik(true)} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-6 rounded-full shadow-lg transition-transform hover:scale-105 flex items-center gap-2">
             <TicketIcon className="w-5 h-5" /> İçerideki Araçlar
+          </button>
+          {/* YENİ EKLENEN İŞLEM GEÇMİŞİ BUTONU */}
+          <button onClick={islemGecmisiniGetir} className="bg-teal-600 hover:bg-teal-700 text-white font-bold py-2.5 px-6 rounded-full shadow-lg transition-transform hover:scale-105 flex items-center gap-2">
+            <ClipboardDocumentListIcon className="w-5 h-5" /> İşlem Geçmişi
           </button>
           <button onClick={() => setGorunum('raporlar')} className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-6 rounded-full shadow-lg transition-transform hover:scale-105 flex items-center gap-2">
             <ArrowTrendingUpIcon className="w-5 h-5" /> Raporlar
@@ -1102,6 +1122,62 @@ export default function App() {
                   <button onClick={() => setDuzenlemeModu(true)} className="bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 px-5 rounded-lg transition-colors flex items-center gap-2"><PencilSquareIcon className="w-5 h-5" /> Düzenle</button>
                 </>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* YENİ EKLENEN İŞLEM GEÇMİŞİ MODALI */}
+      {islemGecmisiModalAcik && (
+        <div className="fixed inset-0 bg-slate-900 bg-opacity-60 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden animate-[toastGiris_0.3s_ease-out]">
+            <div className="bg-teal-700 p-5 text-white flex justify-between items-center">
+              <h2 className="text-xl font-bold flex items-center gap-2">
+                <ClipboardDocumentListIcon className="w-6 h-6" /> Son İşlemler (Geçmiş)
+              </h2>
+              <button onClick={() => setIslemGecmisiModalAcik(false)} className="text-white hover:text-teal-200 font-bold text-2xl leading-none">&times;</button>
+            </div>
+            
+            <div className="p-6 max-h-[60vh] overflow-y-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b-2 border-slate-200">
+                    <th className="py-3 text-slate-600 font-bold">Plaka</th>
+                    <th className="py-3 text-slate-600 font-bold">Park Yeri</th>
+                    <th className="py-3 text-slate-600 font-bold">Giriş / Çıkış</th>
+                    <th className="py-3 text-slate-600 font-bold text-right">Süre</th>
+                    <th className="py-3 text-slate-600 font-bold text-right">Ücret</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {islemGecmisi.length === 0 ? (
+                    <tr><td colSpan="5" className="text-center py-8 text-slate-500 font-medium">Henüz tamamlanmış bir çıkış işlemi bulunmuyor.</td></tr>
+                  ) : (
+                    islemGecmisi.map((islem) => (
+                      <tr key={islem.KayitID} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                        <td className="py-3 font-bold text-slate-800">
+                          <div className="inline-flex items-center gap-1.5 bg-slate-100 px-2 py-1 rounded text-xs border border-slate-200">
+                            <TruckIcon className="w-3.5 h-3.5 text-slate-500" /> {islem.Plaka}
+                          </div>
+                        </td>
+                        <td className="py-3 text-slate-600 font-medium">{islem.ParkYeriAdi}</td>
+                        <td className="py-3 text-slate-500 text-sm">
+                          <div><span className="text-emerald-600 font-semibold">G:</span> {islem.GirisSaati}</div>
+                          <div><span className="text-red-600 font-semibold">Ç:</span> {islem.CikisSaati}</div>
+                        </td>
+                        <td className="py-3 text-slate-600 text-right font-medium">{islem.SureDakika} Dk</td>
+                        <td className="py-3 text-emerald-600 font-black text-right">{Number(islem.ToplamUcret).toFixed(0)} ₺</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+            
+            <div className="bg-slate-100 p-4 flex justify-end border-t border-slate-200">
+              <button onClick={() => setIslemGecmisiModalAcik(false)} className="bg-slate-600 hover:bg-slate-700 text-white font-bold py-2 px-6 rounded-lg transition-colors">
+                Kapat
+              </button>
             </div>
           </div>
         </div>
