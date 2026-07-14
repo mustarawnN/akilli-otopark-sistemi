@@ -1,0 +1,15 @@
+## ✨ Yeni Özellik: İşlem Geçmişi Görüntüleme
+
+Otoparktan çıkış yapmış araçların geriye dönük takibini kolaylaştırmak amacıyla sisteme **İşlem Geçmişi** özelliği eklenmiştir. Bu özellik sayesinde tamamlanan son 50 işlem yönetim paneli üzerinden hızlıca incelenebilmektedir.
+
+### 🚀 Yapılan Değişiklikler
+
+**Backend (Node.js/Express):**
+* `GET /api/islem-gecmisi` uç noktası (endpoint) oluşturuldu.
+* Veritabanından sadece çıkış işlemi tamamlanmış (`CikisSaati IS NOT NULL`) kayıtları getiren ve en yeniden en eskiye (`ORDER BY CikisSaati DESC`) sıralayan SQL sorgusu yazıldı.
+* Sistem performansını korumak adına sorguya `TOP 50` limiti eklendi.
+
+**Frontend (React):**
+* Yönetim paneli buton grubuna yeni bir **"İşlem Geçmişi"** butonu entegre edildi.
+* İşlem geçmişini tablo formatında sunan (Plaka, Park Yeri, Giriş/Çıkış Saatleri, Süre ve Toplam Ücret) yeni bir Modal bileşeni tasarlandı.
+* API'den veri çekmek ve Modal'ı yönetmek için gerekli state (`islemGecmisi`, `islemGecmisiModalAcik`) ve fonksiyon (`islemGecmisiniGetir`) eklendi.
