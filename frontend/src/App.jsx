@@ -40,7 +40,6 @@ function BuyumeRozeti({ yuzde }) {
   );
 }
 
-// YENİ: Tarife (Kalış Süresi) Kırılımı Grafiği
 function TarifeKrilimiGrafigi({ veri }) {
   if (!veri || veri.length === 0) return <div className="h-64 flex items-center justify-center text-slate-400 font-medium">Bu tarih aralığında yeterli veri yok</div>;
 
@@ -77,7 +76,6 @@ function TarifeKrilimiGrafigi({ veri }) {
                 className="h-full rounded-full bg-gradient-to-r from-blue-400 to-blue-600 transition-all duration-1000 shadow-sm relative"
                 style={{ width: `${yuzde}%` }}
               >
-                {/* Parlama Efekti */}
                 <div className="absolute top-0 bottom-0 left-0 right-0 bg-white opacity-20"></div>
               </div>
             </div>
@@ -163,7 +161,7 @@ function ReportsPage({ geriDon }) {
       const zamanDamgasi = new Date().getTime();
       const [ozetRes, tarifeRes, saatlikRes, blokRes, karliRes] = await Promise.all([
         fetch(`${API_BASE}/api/raporlar/ozet?t=${zamanDamgasi}`),
-        fetch(`${API_BASE}/api/raporlar/tarife-dagilimi?t=${zamanDamgasi}`), // YENİ API ÇAĞRISI
+        fetch(`${API_BASE}/api/raporlar/tarife-dagilimi?t=${zamanDamgasi}`),
         fetch(`${API_BASE}/api/raporlar/saatlik?t=${zamanDamgasi}`),
         fetch(`${API_BASE}/api/raporlar/blok?t=${zamanDamgasi}`),
         fetch(`${API_BASE}/api/raporlar/en-karli-islemler?t=${zamanDamgasi}`),
@@ -247,14 +245,12 @@ function ReportsPage({ geriDon }) {
               </div>
             </div>
 
-            {/* YENİ: KALIŞ SÜRESİ VE CİRO KIRILIMI ALANI */}
             <div className="bg-white rounded-2xl shadow-sm p-6 mb-6">
               <div className="flex items-center gap-2 mb-2">
                 <PresentationChartLineIcon className="w-6 h-6 text-blue-600" />
                 <h2 className="text-xl font-bold text-slate-800">Kalış Süresi ve Tarife Dağılımı</h2>
               </div>
               <p className="text-sm text-slate-500 mb-6 font-medium">Müşterilerin otoparkı hangi saat aralıklarında kullandığını ve gelirin hangi tarifeden elde edildiğini gösterir.</p>
-              
               <TarifeKrilimiGrafigi veri={tarifeDagilimi} />
             </div>
 
@@ -341,9 +337,10 @@ export default function App() {
   const [toasts, setToasts] = useState([]);
   const toastTimers = useRef({});
 
-  // YENİ EKLENEN STATE'LER
   const [islemGecmisiModalAcik, setIslemGecmisiModalAcik] = useState(false);
   const [islemGecmisi, setIslemGecmisi] = useState([]);
+  
+  const [canliAkis, setCanliAkis] = useState([]);
 
   const toastKaldir = (id) => {
     if (toastTimers.current[id]) {
@@ -550,10 +547,39 @@ export default function App() {
     try {
       const zamanDamgasi = new Date().getTime();
       const resDurum = await fetch(`http://127.0.0.1:8080/api/durum?t=${zamanDamgasi}`, { cache: 'no-store' });
-      if (resDurum.ok) setParkYerleri(await resDurum.json());
+      let yerler = [];
+      if (resDurum.ok) {
+        yerler = await resDurum.json();
+        setParkYerleri(yerler);
+      }
 
       const resStat = await fetch(`http://127.0.0.1:8080/api/istatistik?t=${zamanDamgasi}`, { cache: 'no-store' });
       if (resStat.ok) setIstatistikler(await resStat.json());
+
+      const resGecmis = await fetch(`http://127.0.0.1:8080/api/islem-gecmisi?t=${zamanDamgasi}`, { cache: 'no-store' });
+      let gecmis = [];
+      if (resGecmis.ok) gecmis = await resGecmis.json();
+
+      const girisler = yerler.filter(y => y.DoluMu).map(y => ({
+        id: `g_${y.ParkYeriID}_${y.SonGuncelleme}`,
+        tip: 'GIRIS',
+        plaka: y.MevcutPlaka,
+        yer: y.ParkYeriAdi,
+        zaman: new Date(y.SonGuncelleme)
+      }));
+
+      const cikislar = gecmis.slice(0, 10).map(c => ({
+        id: `c_${c.KayitID}`,
+        tip: 'CIKIS',
+        plaka: c.Plaka,
+        yer: c.ParkYeriAdi,
+        ucret: c.ToplamUcret,
+        zaman: new Date(c.CikisSaati)
+      }));
+      
+      const birlesik = [...girisler, ...cikislar].sort((a, b) => b.zaman - a.zaman).slice(0, 6);
+      setCanliAkis(birlesik);
+
     } catch (error) {
       toastEkle('hata', 'Sunucu bağlantısı koptu!');
     }
@@ -619,7 +645,6 @@ export default function App() {
     }
   };
 
-  // YENİ EKLENEN İŞLEM GEÇMİŞİ FONKSİYONU
   const islemGecmisiniGetir = async () => {
     try {
       const res = await fetch('http://127.0.0.1:8080/api/islem-gecmisi');
@@ -635,6 +660,14 @@ export default function App() {
     if (!tarihString) return "Bilinmiyor";
     const tarih = new Date(tarihString);
     return tarih.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const saatFormatlaFeed = (dateObj) => {
+    const farkMs = new Date() - dateObj;
+    const farkDk = Math.floor(farkMs / 60000);
+    if (farkDk === 0) return 'Az önce';
+    if (farkDk < 60) return `${farkDk} dk önce`;
+    return `${dateObj.getHours().toString().padStart(2, '0')}:${dateObj.getMinutes().toString().padStart(2, '0')}`;
   };
 
   const sureHesapla = (girisSaatiStr) => {
@@ -681,7 +714,6 @@ export default function App() {
     );
   });
 
-  // GİRİŞ EKRANI
   if (!isLoggedIn) {
     return (
       <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
@@ -711,24 +743,19 @@ export default function App() {
     );
   }
 
-  // RAPORLAR EKRANI
   if (gorunum === 'raporlar') {
     return <ReportsPage geriDon={() => setGorunum('panel')} />;
   }
 
-  const dolulukYuzdesi = (istatistikler.DoluAracSayisi / istatistikler.ToplamKapasite) * 100;
-  const progressBarRenginiGetir = (yuzde) => {
-    if (yuzde >= 80) return 'bg-red-500';
-    if (yuzde >= 50) return 'bg-orange-500';
-    return 'bg-emerald-500';
-  };
+  const dolulukYuzdesi = istatistikler.ToplamKapasite > 0 ? (istatistikler.DoluAracSayisi / istatistikler.ToplamKapasite) * 100 : 0;
+  const renkSinifiDonut = dolulukYuzdesi >= 80 ? 'text-red-500' : dolulukYuzdesi >= 50 ? 'text-orange-500' : 'text-blue-500';
 
-  // ANA PANEL EKRANI
   return (
     <div className="min-h-screen bg-slate-100 p-6 font-sans text-slate-800 relative overflow-x-hidden">
       <div className="max-w-7xl mx-auto">
+        
         {/* Üst Bar */}
-        <div className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm mb-6 border-t-4 border-blue-600">
+        <div className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm mb-6 border-t-4 border-blue-600 relative z-40">
           <div className="flex items-center gap-4">
             <img src={musparkLogo} alt="MusPark" className="h-16 w-auto select-none" draggable="false" />
             <div className="hidden sm:block h-11 w-px bg-slate-200"></div>
@@ -743,150 +770,214 @@ export default function App() {
                 if (simulasyonAktif) setSimulasyonAktif(false);
                 else setSimulasyonOnayAcik(true);
               }} 
-              className={`font-bold py-2 px-5 rounded-lg transition-all flex items-center gap-2 shadow-sm border-2 ${
+              className={`font-bold py-2 px-4 rounded-lg transition-all flex items-center gap-2 shadow-sm border-2 ${
                 simulasyonAktif 
                   ? 'bg-purple-100 text-purple-700 border-purple-300 hover:bg-purple-200' 
                   : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
               }`}
             >
               <CpuChipIcon className={`w-5 h-5 ${simulasyonAktif ? 'animate-pulse text-purple-600' : 'text-slate-400'}`} />
-              <span className="hidden sm:inline">{simulasyonAktif ? '🤖 Oto-Simülasyon: AÇIK' : '🤖 Oto-Simülasyon: KAPALI'}</span>
+              <span className="hidden md:inline">{simulasyonAktif ? '🤖 Simülasyon: AÇIK' : '🤖 Simülasyon'}</span>
             </button>
-            <button onClick={cikisOnayiIste} className="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2 px-6 rounded-lg transition-colors flex items-center gap-2">
+            <button onClick={cikisOnayiIste} className="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2 px-5 rounded-lg transition-colors flex items-center gap-2">
               <ArrowRightOnRectangleIcon className="w-5 h-5" /> <span className="hidden sm:inline">Çıkış</span>
             </button>
           </div>
         </div>
 
-        {/* İSTATİSTİK KARTLARI */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div className="bg-white rounded-2xl shadow-sm p-5 border-l-4 border-emerald-500 flex items-center justify-between hover:shadow-md transition-shadow">
-            <div>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Günlük Toplam Ciro</p>
-              <p className="text-2xl font-black text-slate-800">{istatistikler.GunlukCiro} <span className="text-lg text-slate-500 font-medium">₺</span></p>
-            </div>
-            <div className="bg-emerald-100 p-3 rounded-full"><BanknotesIcon className="w-6 h-6 text-emerald-600" /></div>
-          </div>
-          <div className="bg-white rounded-2xl shadow-sm p-5 border-l-4 border-blue-500 flex flex-col justify-center hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Anlık Doluluk</p>
-                <p className="text-2xl font-black text-slate-800">{istatistikler.DoluAracSayisi} <span className="text-lg text-slate-500 font-medium">/ {istatistikler.ToplamKapasite}</span></p>
-              </div>
-              <div className="bg-blue-100 p-3 rounded-full"><TruckIcon className="w-6 h-6 text-blue-600" /></div>
-            </div>
-            <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
-              <div className={`h-2.5 rounded-full transition-all duration-1000 ${progressBarRenginiGetir(dolulukYuzdesi)}`} style={{ width: `${dolulukYuzdesi}%` }}></div>
-            </div>
-          </div>
-          <div className="bg-white rounded-2xl shadow-sm p-5 border-l-4 border-purple-500 flex items-center justify-between hover:shadow-md transition-shadow">
-            <div>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Bugün Giren Araç</p>
-              <p className="text-2xl font-black text-slate-800">{istatistikler.BugunGirenArac}</p>
-            </div>
-            <div className="bg-purple-100 p-3 rounded-full"><ChartBarIcon className="w-6 h-6 text-purple-600" /></div>
-          </div>
-        </div>
-
-        {/* BUTONLAR */}
-        <div className="flex justify-center gap-4 mb-6 flex-wrap">
-          <button onClick={aracGirisModaliAc} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-6 rounded-full shadow-lg transition-transform hover:scale-105 flex items-center gap-2">
-            <PlusCircleIcon className="w-5 h-5" /> Yeni Araç Al
-          </button>
-          <button onClick={() => setBiletModalAcik(true)} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-6 rounded-full shadow-lg transition-transform hover:scale-105 flex items-center gap-2">
-            <TicketIcon className="w-5 h-5" /> İçerideki Araçlar
-          </button>
-          {/* YENİ EKLENEN İŞLEM GEÇMİŞİ BUTONU */}
-          <button onClick={islemGecmisiniGetir} className="bg-teal-600 hover:bg-teal-700 text-white font-bold py-2.5 px-6 rounded-full shadow-lg transition-transform hover:scale-105 flex items-center gap-2">
-            <ClipboardDocumentListIcon className="w-5 h-5" /> İşlem Geçmişi
-          </button>
-          <button onClick={() => setGorunum('raporlar')} className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-6 rounded-full shadow-lg transition-transform hover:scale-105 flex items-center gap-2">
-            <ArrowTrendingUpIcon className="w-5 h-5" /> Raporlar
-          </button>
-          <button onClick={fiyatlandirmaModaliniAc} className="bg-amber-500 hover:bg-amber-600 text-white font-bold py-2.5 px-6 rounded-full shadow-lg transition-transform hover:scale-105 flex items-center gap-2">
-            <CurrencyDollarIcon className="w-5 h-5" /> Fiyatlandırma
-          </button>
-        </div>
-
-        {/* ARAMA ÇUBUĞU */}
-        <div className="mb-6 flex flex-col sm:flex-row justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200 gap-4">
-          <div className="relative w-full sm:w-1/2 md:w-1/3">
-            <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Plaka veya Park Yeri Ara..."
-              value={aramaMetni}
-              onChange={(e) => setAramaMetni(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 rounded-lg border-2 border-slate-100 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all font-semibold text-slate-700"
-            />
-          </div>
-          <div className="text-sm font-bold text-slate-500">
-            <span className="text-blue-600">{filtrelenmisParkYerleri.length}</span> sonuç listeleniyor
-          </div>
-        </div>
-
-        {/* YENİ TASARIM: MODERN, ŞIK VE YATAY PLAKALI KARTLAR */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-          {filtrelenmisParkYerleri.map((yer) => (
-            yer.DoluMu ? (
-              <div 
-                key={yer.ParkYeriID} 
-                onClick={() => setSeciliParkYeri(yer)} 
-                className="cursor-pointer relative bg-white border border-slate-200 rounded-xl p-4 shadow-sm hover:shadow-md hover:border-blue-400 hover:ring-2 hover:ring-blue-100 transition-all flex flex-col items-center justify-between h-32 group"
-              >
-                {/* Park Yeri İsmi ve Durum Işığı */}
-                <div className="w-full flex justify-between items-center mb-2">
-                  <span className="text-lg font-black text-slate-700 group-hover:text-blue-600 transition-colors">{yer.ParkYeriAdi}</span>
-                  <span className="w-2.5 h-2.5 rounded-full bg-red-500 shadow-[0_0_5px_rgba(239,68,68,0.6)] animate-pulse"></span>
+        <div className="flex flex-col lg:flex-row gap-6 mb-6 items-start">
+          
+          <div className="flex-1 flex flex-col gap-6 w-full">
+            
+            {/* İSTATİSTİK KARTLARI */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-white rounded-2xl shadow-sm p-5 border-l-4 border-emerald-500 flex items-center justify-between hover:shadow-md transition-shadow">
+                <div>
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Günlük Toplam Ciro</p>
+                  <p className="text-2xl font-black text-slate-800">{istatistikler.GunlukCiro} <span className="text-lg text-slate-500 font-medium">₺</span></p>
                 </div>
+                <div className="bg-emerald-100 p-3 rounded-full"><BanknotesIcon className="w-6 h-6 text-emerald-600" /></div>
+              </div>
+              
+              <div className="bg-white rounded-2xl shadow-sm p-5 border-l-4 border-blue-500 flex items-center justify-between hover:shadow-md transition-shadow">
+                <div>
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Anlık Doluluk</p>
+                  <p className="text-2xl font-black text-slate-800">{istatistikler.DoluAracSayisi} <span className="text-lg text-slate-500 font-medium">/ {istatistikler.ToplamKapasite}</span></p>
+                </div>
+                <div className="relative w-14 h-14 flex items-center justify-center">
+                  <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                    <path
+                      className="text-slate-100"
+                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className={`${renkSinifiDonut} transition-all duration-1000`}
+                      strokeDasharray={`${dolulukYuzdesi}, 100`}
+                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                  <div className="absolute flex items-center justify-center">
+                    <TruckIcon className={`w-5 h-5 ${renkSinifiDonut}`} />
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-2xl shadow-sm p-5 border-l-4 border-purple-500 flex items-center justify-between hover:shadow-md transition-shadow">
+                <div>
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Bugün Giren Araç</p>
+                  <p className="text-2xl font-black text-slate-800">{istatistikler.BugunGirenArac}</p>
+                </div>
+                <div className="bg-purple-100 p-3 rounded-full"><ChartBarIcon className="w-6 h-6 text-purple-600" /></div>
+              </div>
+            </div>
+
+            {/* ARAÇ ÇUBUĞU (TOOLBAR) - RENKLER ORİJİNALE DÖNDÜRÜLDÜ */}
+            <div className="flex flex-col 2xl:flex-row justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200 gap-4">
+              
+              {/* Buton Grubu */}
+              <div className="flex flex-wrap gap-2.5 w-full 2xl:w-auto items-center">
                 
-                {/* Gerçekçi Şık TR Plaka Tasarımı (Yatay) */}
-                <div className="flex items-center w-full max-w-[130px] h-9 bg-white rounded border-2 border-slate-300 shadow-sm overflow-hidden transform group-hover:scale-105 transition-transform">
-                  <div className="bg-blue-600 h-full w-5 flex flex-col items-center justify-end pb-[2px] shrink-0">
-                    <span className="text-white text-[7px] font-bold leading-none">TR</span>
-                  </div>
-                  <div className="flex-1 text-center font-black text-slate-800 text-sm tracking-wider px-1">
-                    {yer.MevcutPlaka}
-                  </div>
-                </div>
+                {/* Yeni Araç Al */}
+                <button onClick={aracGirisModaliAc} className="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-5 rounded-lg shadow-sm transition-transform hover:-translate-y-0.5 flex items-center justify-center gap-2">
+                  <PlusCircleIcon className="w-5 h-5" /> Yeni Araç
+                </button>
+                
+                {/* İçeridekiler Butonu */}
+                <button onClick={() => setBiletModalAcik(true)} className="flex-1 sm:flex-none bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-5 rounded-lg shadow-sm transition-transform hover:-translate-y-0.5 flex items-center justify-center gap-2">
+                  <TicketIcon className="w-5 h-5" /> İçeridekiler
+                </button>
 
-                {/* Ufak Detay */}
-                <div className="w-full text-center mt-2">
-                  <span className="text-xs font-semibold text-slate-400 flex items-center justify-center gap-1">
-                    <MapPinIcon className="w-3.5 h-3.5"/> Park Halinde
-                  </span>
-                </div>
-              </div>
-            ) : (
-              <div 
-                key={yer.ParkYeriID} 
-                onClick={() => setSeciliParkYeri(yer)} 
-                className="cursor-pointer relative bg-slate-50 border-2 border-dashed border-emerald-300 rounded-xl p-4 shadow-sm hover:shadow-md hover:bg-emerald-50 hover:border-emerald-400 transition-all flex flex-col items-center justify-between h-32 group"
-              >
-                {/* Park Yeri İsmi */}
-                <div className="w-full flex justify-between items-center mb-2">
-                  <span className="text-lg font-black text-slate-400 group-hover:text-emerald-700 transition-colors">{yer.ParkYeriAdi}</span>
-                  <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-                </div>
+                {/* Araya zarif bir ayırıcı */}
+                <div className="hidden sm:block h-8 w-px bg-slate-200 mx-1"></div>
 
-                {/* Boş İkonu */}
-                <div className="flex-1 flex flex-col items-center justify-center">
-                  <CheckBadgeIcon className="w-8 h-8 text-emerald-400 group-hover:scale-110 transition-transform mb-1" />
-                  <span className="text-emerald-600 font-bold text-sm tracking-widest">MÜSAİT</span>
-                </div>
+                {/* Yönetim / Analiz Butonları (Eski Orijinal Renkleriyle) */}
+                <button onClick={islemGecmisiniGetir} className="flex-1 sm:flex-none bg-teal-600 hover:bg-teal-700 text-white font-bold py-2.5 px-4 rounded-lg shadow-sm transition-transform hover:-translate-y-0.5 flex items-center justify-center gap-2">
+                  <ClipboardDocumentListIcon className="w-5 h-5" /> Geçmiş
+                </button>
+                <button onClick={() => setGorunum('raporlar')} className="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded-lg shadow-sm transition-transform hover:-translate-y-0.5 flex items-center justify-center gap-2">
+                  <ArrowTrendingUpIcon className="w-5 h-5" /> Raporlar
+                </button>
+                <button onClick={fiyatlandirmaModaliniAc} className="flex-1 sm:flex-none bg-amber-500 hover:bg-amber-600 text-white font-bold py-2.5 px-4 rounded-lg shadow-sm transition-transform hover:-translate-y-0.5 flex items-center justify-center gap-2">
+                  <CurrencyDollarIcon className="w-5 h-5" /> Tarife
+                </button>
+                
               </div>
-            )
-          ))}
+
+              {/* Arama Çubuğu */}
+              <div className="relative w-full 2xl:w-64 shrink-0">
+                <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Plaka veya Park Yeri Ara..."
+                  value={aramaMetni}
+                  onChange={(e) => setAramaMetni(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 rounded-lg border-2 border-slate-100 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all font-semibold text-slate-700 bg-slate-50"
+                />
+              </div>
+            </div>
+
+            {/* PARK YERLERİ GRID'İ */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+              {filtrelenmisParkYerleri.map((yer) => (
+                yer.DoluMu ? (
+                  <div 
+                    key={yer.ParkYeriID} 
+                    onClick={() => setSeciliParkYeri(yer)} 
+                    className="cursor-pointer relative bg-white border border-slate-200 rounded-xl p-4 shadow-sm hover:shadow-md hover:border-blue-400 hover:ring-2 hover:ring-blue-100 transition-all flex flex-col items-center justify-between h-32 group"
+                  >
+                    <div className="w-full flex justify-between items-center mb-2">
+                      <span className="text-lg font-black text-slate-700 group-hover:text-blue-600 transition-colors">{yer.ParkYeriAdi}</span>
+                      <span className="w-2.5 h-2.5 rounded-full bg-red-500 shadow-[0_0_5px_rgba(239,68,68,0.6)] animate-pulse"></span>
+                    </div>
+                    
+                    <div className="flex items-center w-full max-w-[130px] h-9 bg-white rounded border-2 border-slate-300 shadow-sm overflow-hidden transform group-hover:scale-105 transition-transform">
+                      <div className="bg-blue-600 h-full w-5 flex flex-col items-center justify-end pb-[2px] shrink-0">
+                        <span className="text-white text-[7px] font-bold leading-none">TR</span>
+                      </div>
+                      <div className="flex-1 text-center font-black text-slate-800 text-sm tracking-wider px-1">
+                        {yer.MevcutPlaka}
+                      </div>
+                    </div>
+
+                    <div className="w-full text-center mt-2">
+                      <span className="text-xs font-semibold text-slate-400 flex items-center justify-center gap-1">
+                        <MapPinIcon className="w-3.5 h-3.5"/> Park Halinde
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div 
+                    key={yer.ParkYeriID} 
+                    onClick={() => setSeciliParkYeri(yer)} 
+                    className="cursor-pointer relative bg-slate-50 border-2 border-dashed border-emerald-300 rounded-xl p-4 shadow-sm hover:shadow-md hover:bg-emerald-50 hover:border-emerald-400 transition-all flex flex-col items-center justify-between h-32 group"
+                  >
+                    <div className="w-full flex justify-between items-center mb-2">
+                      <span className="text-lg font-black text-slate-400 group-hover:text-emerald-700 transition-colors">{yer.ParkYeriAdi}</span>
+                      <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                    </div>
+
+                    <div className="flex-1 flex flex-col items-center justify-center">
+                      <CheckBadgeIcon className="w-8 h-8 text-emerald-400 group-hover:scale-110 transition-transform mb-1" />
+                      <span className="text-emerald-600 font-bold text-sm tracking-widest">MÜSAİT</span>
+                    </div>
+                  </div>
+                )
+              ))}
+            </div>
+          </div>
+
+          {/* CANLI AKIŞ (LIVE FEED) SAĞ PANEL */}
+          <div className="w-full lg:w-80 xl:w-96 flex-shrink-0">
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 h-full min-h-[400px]">
+              <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2 mb-4 border-b border-slate-100 pb-3">
+                <ClockIcon className="w-5 h-5 text-blue-600" /> Canlı Akış
+              </h3>
+              <div className="flex flex-col gap-5">
+                {canliAkis.map((islem) => (
+                  <div key={islem.id} className="flex gap-3 items-start animate-[slideInRight_0.3s_ease-out]">
+                    <div className={`mt-0.5 rounded-full p-2 shrink-0 ${islem.tip === 'GIRIS' ? 'bg-blue-100 text-blue-600' : 'bg-emerald-100 text-emerald-600'}`}>
+                      <ArrowRightOnRectangleIcon className={`w-4 h-4 ${islem.tip === 'GIRIS' ? 'transform rotate-180' : ''}`} />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex justify-between items-start">
+                        <span className="font-bold text-slate-700 tracking-wide text-sm">{islem.plaka}</span>
+                        <span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded">{saatFormatlaFeed(islem.zaman)}</span>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-1 leading-snug">
+                        {islem.tip === 'GIRIS' ? (
+                          <><strong className="text-blue-600">{islem.yer}</strong> alanına <span className="font-semibold">girdi</span>.</>
+                        ) : (
+                          <><strong className="text-emerald-600">{islem.yer}</strong> alanından çıktı. <span className="text-emerald-600 font-bold ml-1">+{islem.ucret}₺</span></>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+                {canliAkis.length === 0 && (
+                  <div className="text-center py-10 opacity-60">
+                    <ClockIcon className="w-10 h-10 mx-auto text-slate-300 mb-2" />
+                    <p className="text-sm text-slate-500 font-medium">Henüz bir hareket yok.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+          
         </div>
       </div>
 
       {/* DETAY DRAWER (SAĞDAN AÇILAN PANEL) */}
       {seciliParkYeri && (
         <div className="fixed inset-0 z-[60] flex justify-end">
-          {/* Arka plan karartması */}
           <div className="absolute inset-0 bg-slate-900 bg-opacity-40 transition-opacity" onClick={() => setSeciliParkYeri(null)}></div>
           
-          {/* Drawer Paneli */}
           <div className="relative w-full max-w-sm bg-white h-full shadow-2xl flex flex-col animate-[slideInRight_0.3s_ease-out]">
             <div className={`p-5 text-white flex justify-between items-center ${seciliParkYeri.DoluMu ? 'bg-red-600' : 'bg-emerald-600'}`}>
               <h2 className="text-xl font-bold flex items-center gap-2">
@@ -901,7 +992,6 @@ export default function App() {
                 <div className="space-y-6">
                   <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-center shadow-sm">
                     <p className="text-sm text-slate-500 font-bold mb-3">Araç Plakası</p>
-                    {/* TR Plaka Drawer İçi */}
                     <div className="flex items-center w-full max-w-[200px] h-12 bg-white rounded border-2 border-slate-300 shadow-sm overflow-hidden mx-auto">
                       <div className="bg-blue-600 h-full w-8 flex flex-col items-center justify-end pb-1 shrink-0">
                         <span className="text-white text-[10px] font-bold leading-none">TR</span>
@@ -1127,7 +1217,7 @@ export default function App() {
         </div>
       )}
 
-      {/* YENİ EKLENEN İŞLEM GEÇMİŞİ MODALI */}
+      {/* İŞLEM GEÇMİŞİ MODALI */}
       {islemGecmisiModalAcik && (
         <div className="fixed inset-0 bg-slate-900 bg-opacity-60 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden animate-[toastGiris_0.3s_ease-out]">
