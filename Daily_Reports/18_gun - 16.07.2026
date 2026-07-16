@@ -1,0 +1,17 @@
+✨ Yeni Özellik: Modern Arayüz ve Canlı Akış (Live Feed)
+Otopark yönetim operasyonlarını hızlandırmak ve sistemin anlık takibini kolaylaştırmak amacıyla arayüzde tasarımsal iyileştirmeler yapılmış ve sisteme Canlı Akış özelliği eklenmiştir.
+
+🚀 Yapılan Değişiklikler
+Backend (Node.js/Express):
+
+Altyapıda yeni bir mimari değişikliğe gidilmemiş olup, mevcut GET /api/durum ve GET /api/islem-gecmisi uç noktaları (endpoint) Canlı Akış verilerini beslemek üzere optimize edilerek kullanıldı.
+
+Frontend (React):
+
+Yönetim paneli buton grubu sadeleştirilerek, orijinal canlı renklerin korunduğu ve arama çubuğu ile hizalanmış yatay bir Araç Çubuğu (Toolbar) tasarımına geçildi.
+
+Otoparkın anlık doluluk oranını daha şık görselleştirmek için, doluluk yüzdesine göre dinamik olarak renk değiştiren modern bir Halka Grafik (Donut Chart) bileşeni eklendi.
+
+Sisteme anlık olarak giren ve çıkan araçları (zaman, ücret ve park yeri bilgileriyle birlikte) kronolojik olarak listeleyen Canlı Akış modülü ekranın sağ paneline entegre edildi.
+
+API'den çekilen aktif park yerleri ve işlem geçmişi verilerini harmanlayıp tek bir zaman çizelgesi oluşturan canliAkis state'i ve veri işleme mantığı oluşturuldu.
