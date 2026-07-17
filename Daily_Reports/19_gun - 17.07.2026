@@ -1,0 +1,15 @@
+✨ Gün Sonu Raporu: Tema Optimizasyonu ve İşlem Geçmişi Yönetimi
+Yönetim panelinin kullanıcı deneyimini artırmak ve geriye dönük park kayıtlarının takibini sağlamak amacıyla tema altyapısında düzeltmeler yapılmış ve işlem geçmişi modülü arayüze entegre edilmiştir.
+
+🚀 Yapılan Değişiklikler
+
+Backend (Node.js/Express & SQL):
+
+Geriye dönük logları sağlayan GET /api/islem-gecmisi uç noktasından dönen JSON verilerinin, yeni arayüz bileşenleriyle uyumlu çalışıp çalışmadığı test edildi ve sorunsuz aktarım sağlandığı doğrulandı.
+
+Frontend (React):
+
+Tema (Dark/Light Mode) Entegrasyonu: Panelin karanlık/aydınlık tema geçişlerindeki sınıf (class) algılama sorunu giderildi. Proje mimarisine uygun olarak, harici bir konfigürasyon dosyası oluşturmak yerine doğrudan index.html içerisinde yer alan Tailwind CDN betiğine tailwind.config = { darkMode: 'class' } parametresi eklenerek buton üzerinden state tabanlı tema geçişleri stabil hale getirildi.
+
+
+Performans Optimizasyonu: Arayüz üzerindeki canlı takip araçlarında kullanılan useEffect bağımlılıkları ve veri çekme (fetch) state'leri gözden geçirilerek, panelin gereksiz yere yeniden render edilmesinin (re-render) önüne geçildi.
