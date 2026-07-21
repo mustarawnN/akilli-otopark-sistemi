@@ -307,6 +307,78 @@ function ReportsPage({ geriDon }) {
 }
 
 // ==========================================
+// MAKET GÖRÜNÜMÜ (U KROKİ) BİLEŞENİ
+// ==========================================
+function MaketKrokisi({ parkYerleri, seciliParkYeriAyarla }) {
+  const yerGetir = (adi) => parkYerleri.find(y => y.ParkYeriAdi === adi);
+
+  // Maketindeki fiziksel dizilime göre gruplandırma
+  const SolGrup = ['A1', 'A2', 'A3'];
+  const ArkaGrup = ['A4', 'A5', 'B1', 'B2'];
+  const SagGrup = ['B3', 'B4', 'B5'];
+
+  const KrokiKutusu = ({ spotAdi }) => {
+    const spot = yerGetir(spotAdi);
+    if (!spot) return <div className="w-20 h-28 md:w-24 md:h-32 bg-slate-200 dark:bg-slate-700 rounded-xl opacity-50 flex items-center justify-center font-bold text-slate-400">{spotAdi}</div>;
+
+    return (
+      <div 
+        onClick={() => seciliParkYeriAyarla(spot)} 
+        className={`cursor-pointer relative w-20 h-28 md:w-24 md:h-32 rounded-xl flex flex-col items-center justify-between p-2 md:p-3 border-4 transition-all shadow-md group overflow-hidden ${
+          spot.DoluMu 
+            ? 'bg-red-500/10 border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.4)]' 
+            : 'bg-emerald-500/10 border-emerald-400 border-dashed hover:bg-emerald-500/20'
+        }`}
+      >
+        <span className={`text-lg md:text-xl font-black ${spot.DoluMu ? 'text-red-500' : 'text-emerald-500'}`}>{spot.ParkYeriAdi}</span>
+        
+        {spot.DoluMu ? (
+          <div className="w-full bg-white dark:bg-slate-800 border-2 border-slate-300 rounded px-1 py-1.5 md:py-2 text-center z-10 transform group-hover:scale-105 transition-transform flex flex-col items-center">
+            <div className="bg-blue-600 h-1.5 w-full rounded-t-sm mb-1"></div>
+            <span className="text-[9px] md:text-[11px] font-bold text-slate-800 dark:text-slate-100 tracking-wider break-all">{spot.MevcutPlaka}</span>
+          </div>
+        ) : (
+          <CheckBadgeIcon className="w-8 h-8 md:w-10 md:h-10 text-emerald-400 opacity-50 group-hover:opacity-100 transition-opacity" />
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 md:p-10 flex flex-col items-center relative overflow-hidden border border-slate-200 dark:border-slate-700 w-full shadow-sm">
+      {/* Yol Çizgileri Animasyonu */}
+      <div className="absolute inset-x-16 inset-y-16 md:inset-x-24 md:inset-y-20 border-[8px] md:border-[12px] border-dashed border-slate-200 dark:border-slate-600 rounded-t-[3rem] border-b-0 pointer-events-none"></div>
+
+      {/* Arka Duvar (A4, A5, B1, B2) */}
+      <div className="flex gap-4 md:gap-8 mb-10 md:mb-16 z-10">
+        {ArkaGrup.map(adi => <KrokiKutusu key={adi} spotAdi={adi} />)}
+      </div>
+
+      <div className="flex justify-between w-full z-10 px-2 md:px-8">
+        {/* Sol Duvar (A1, A2, A3) */}
+        <div className="flex flex-col gap-4 md:gap-8">
+          {SolGrup.map(adi => <KrokiKutusu key={adi} spotAdi={adi} />)}
+        </div>
+
+        {/* Orta Gişe / Kontrol Kulübesi */}
+        <div className="flex-1 flex flex-col items-center justify-end pb-4 md:pb-8">
+          <div className="w-28 h-28 md:w-40 md:h-40 bg-slate-100 dark:bg-slate-900 rounded-2xl flex flex-col items-center justify-center border-4 border-slate-300 dark:border-slate-700 shadow-inner relative">
+            <div className="absolute -top-3 md:-top-4 bg-blue-600 px-3 md:px-5 py-1 rounded-full text-white font-bold text-[10px] md:text-xs tracking-widest shadow-md">GİŞE</div>
+            <span className="text-blue-500 font-black text-5xl md:text-7xl">P</span>
+            <span className="text-slate-400 dark:text-slate-500 text-[9px] md:text-xs mt-1 md:mt-2 font-bold tracking-widest">OTOPARK</span>
+          </div>
+        </div>
+
+        {/* Sağ Duvar (B3, B4, B5) */}
+        <div className="flex flex-col gap-4 md:gap-8">
+          {SagGrup.map(adi => <KrokiKutusu key={adi} spotAdi={adi} />)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
 // ANA UYGULAMA (APP) BİLEŞENİ
 // ==========================================
 export default function App() {
@@ -333,7 +405,6 @@ export default function App() {
   const [gorunum, setGorunum] = useState('panel');
 
   // --- KARANLIK MOD ---
-  // NOT: tailwind.config.js dosyasında `darkMode: 'class'` ayarının tanımlı olması gerekir.
   const [karanlikMod, setKaranlikMod] = useState(() => {
     try {
       const kayitli = localStorage.getItem('musparkKaranlikMod');
@@ -918,53 +989,14 @@ export default function App() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-              {filtrelenmisParkYerleri.map((yer) => (
-                yer.DoluMu ? (
-                  <div 
-                    key={yer.ParkYeriID} 
-                    onClick={() => setSeciliParkYeri(yer)} 
-                    className="cursor-pointer relative bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 shadow-sm hover:shadow-md hover:border-blue-400 dark:hover:border-blue-500 hover:ring-2 hover:ring-blue-100 dark:hover:ring-blue-900/40 transition-all flex flex-col items-center justify-between h-32 group"
-                  >
-                    <div className="w-full flex justify-between items-center mb-2">
-                      <span className="text-lg font-black text-slate-700 dark:text-slate-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{yer.ParkYeriAdi}</span>
-                      <span className="w-2.5 h-2.5 rounded-full bg-red-500 shadow-[0_0_5px_rgba(239,68,68,0.6)] animate-pulse"></span>
-                    </div>
-                    
-                    <div className="flex items-center w-full max-w-[130px] h-9 bg-white rounded border-2 border-slate-300 shadow-sm overflow-hidden transform group-hover:scale-105 transition-transform">
-                      <div className="bg-blue-600 h-full w-5 flex flex-col items-center justify-end pb-[2px] shrink-0">
-                        <span className="text-white text-[7px] font-bold leading-none">TR</span>
-                      </div>
-                      <div className="flex-1 text-center font-black text-slate-800 text-sm tracking-wider px-1">
-                        {yer.MevcutPlaka}
-                      </div>
-                    </div>
-
-                    <div className="w-full text-center mt-2">
-                      <span className="text-xs font-semibold text-slate-400 dark:text-slate-500 flex items-center justify-center gap-1">
-                        <MapPinIcon className="w-3.5 h-3.5"/> Park Halinde
-                      </span>
-                    </div>
-                  </div>
-                ) : (
-                  <div 
-                    key={yer.ParkYeriID} 
-                    onClick={() => setSeciliParkYeri(yer)} 
-                    className="cursor-pointer relative bg-slate-50 dark:bg-slate-800/60 border-2 border-dashed border-emerald-300 dark:border-emerald-700 rounded-xl p-4 shadow-sm hover:shadow-md hover:bg-emerald-50 dark:hover:bg-emerald-900/20 hover:border-emerald-400 dark:hover:border-emerald-500 transition-all flex flex-col items-center justify-between h-32 group"
-                  >
-                    <div className="w-full flex justify-between items-center mb-2">
-                      <span className="text-lg font-black text-slate-400 dark:text-slate-500 group-hover:text-emerald-700 dark:group-hover:text-emerald-400 transition-colors">{yer.ParkYeriAdi}</span>
-                      <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-                    </div>
-
-                    <div className="flex-1 flex flex-col items-center justify-center">
-                      <CheckBadgeIcon className="w-8 h-8 text-emerald-400 dark:text-emerald-500 group-hover:scale-110 transition-transform mb-1" />
-                      <span className="text-emerald-600 dark:text-emerald-400 font-bold text-sm tracking-widest">MÜSAİT</span>
-                    </div>
-                  </div>
-                )
-              ))}
+            {/* OTOPARK U-KROKİ TASARIMI */}
+            <div className="w-full mt-4">
+              <MaketKrokisi 
+                parkYerleri={filtrelenmisParkYerleri} 
+                seciliParkYeriAyarla={setSeciliParkYeri} 
+              />
             </div>
+            
           </div>
 
           <div className="w-full lg:w-80 xl:w-96 flex-shrink-0">
