@@ -1,0 +1,14 @@
+✨ Gün Sonu Raporu: İnteraktif Maket Krokisi ve Arayüz Optimizasyonu
+Yönetim panelinin görsel sunumunu güçlendirmek ve projenin ileriki aşamalarında kullanılacak fiziksel donanım maketiyle tam uyum sağlamak amacıyla, arayüzdeki standart liste görünümü değiştirilmiş ve interaktif bir U-kroki sisteme entegre edilmiştir.
+
+🚀 Yapılan Değişiklikler
+
+Backend (Node.js/Express & SQL):
+
+Mevcut araç giriş ve çıkış işlemlerini yöneten uç noktaların (POST /api/giris, POST /api/cikis) yeni görsel bileşenlerden gelen state istekleriyle uyumlu çalışıp çalışmadığı test edildi ve sorunsuz tetiklendiği doğrulandı. İleride eklenecek ESP32 ve IR sensör haberleşmesi için veri akış planlaması yapıldı.
+
+Frontend (React):
+
+Maket Görünümü Entegrasyonu: Araç doluluk durumunu gösteren standart ızgara (grid) yapısı projeden çıkarıldı. Bunun yerine, planlanan fiziksel maketin yerleşimine (U planlı, ortasında kontrol gişesi ve yol çizgileri bulunan) birebir sadık kalan interaktif MaketKrokisi bileşeni geliştirilerek ana panele yerleştirildi.
+
+Etkileşim ve Modal Bağlantıları: Yeni kroki yapısı üzerindeki park alanlarına tıklama (onClick) olayları güncellendi. Kullanıcının boş veya dolu bir alana tıkladığında tetiklenen araç detay, yeni araç giriş ve çıkış onayı modallarıyla olan veri (prop) bağlantıları eksiksiz şekilde bağlandı ve renk/durum güncellemeleri stabil hale getirildi.
