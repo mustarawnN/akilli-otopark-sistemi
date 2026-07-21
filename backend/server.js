@@ -85,15 +85,14 @@ app.get('/api/istatistik', async (req, res) => {
     }
 });
 
-// --- ARAÇ GİRİŞ API'Sİ (PLAKA BAZLI) ---
+// --- ARAÇ GİRİŞ API'Sİ (V2 - ABONELİK DESTEKLİ) ---
 app.post('/api/giris', async (req, res) => {
     const { plaka } = req.body;
-    if (!plaka || !plaka.trim()) {
-        return res.status(400).json({ durum: 'HATA', mesaj: 'Plaka bilgisi zorunludur!' });
-    }
+    if (!plaka || !plaka.trim()) return res.status(400).json({ durum: 'HATA', mesaj: 'Plaka bilgisi zorunludur!' });
 
     const temizPlaka = plaka.trim().toUpperCase().replace(/\s+/g, ' ');
     const plakaRegex = /^\d{2}\s?[A-PRSTUVYZ]{1,3}\s?\d{2,4}$/;
+    
     if (!plakaRegex.test(temizPlaka)) {
         return res.status(400).json({ durum: 'HATA', mesaj: 'Geçersiz plaka formatı! Örn: 34 ABC 1234' });
     }
@@ -101,22 +100,52 @@ app.post('/api/giris', async (req, res) => {
     try {
         const pool = await poolPromise;
 
-        // Aynı plaka zaten içeride mi?
+        // 1. Araç zaten içeride mi?
         const mevcutKontrol = await pool.request()
             .input('plaka', sql.NVarChar, temizPlaka)
             .query('SELECT TOP 1 * FROM ParkYerleri WHERE MevcutPlaka = @plaka AND DoluMu = 1');
-
+        
         if (mevcutKontrol.recordset.length > 0) {
             return res.status(400).json({ durum: 'HATA', mesaj: 'Bu plakaya ait araç zaten içeride!' });
         }
 
-        const bosYer = await pool.request().query('SELECT TOP 1 * FROM ParkYerleri WHERE DoluMu = 0');
+        // 2. Abone Kontrolü (Süresi devam eden aktif bir abonelik var mı?)
+        const aboneKontrol = await pool.request()
+            .input('plaka', sql.NVarChar, temizPlaka)
+            .query('SELECT TOP 1 BitisTarihi FROM Aboneler WHERE Plaka = @plaka AND AktifMi = 1 AND BitisTarihi > GETDATE()');
+        
+        const isAbone = aboneKontrol.recordset.length > 0;
+
+        // 3. Boş Yer Bulma Mantığı (A1 ve A2 Kuralları)
+        let bosYerSorgu = '';
+        if (isAbone) {
+            // Abone ise öncelik A1 ve A2'nin, eğer onlar doluysa diğer boş yerlere park edebilir.
+            bosYerSorgu = `
+                SELECT TOP 1 * FROM ParkYerleri 
+                WHERE DoluMu = 0 
+                ORDER BY CASE WHEN ParkYeriAdi IN ('A1', 'A2') THEN 0 ELSE 1 END, ParkYeriAdi
+            `;
+        } else {
+            // Normal müşteri A1 ve A2'ye ASLA park edemez!
+            bosYerSorgu = `
+                SELECT TOP 1 * FROM ParkYerleri 
+                WHERE DoluMu = 0 AND ParkYeriAdi NOT IN ('A1', 'A2') 
+                ORDER BY ParkYeriAdi
+            `;
+        }
+
+        const bosYer = await pool.request().query(bosYerSorgu);
+        
         if (bosYer.recordset.length === 0) {
-            return res.status(400).json({ durum: 'HATA', mesaj: 'Otopark dolu!' });
+            return res.status(400).json({ 
+                durum: 'HATA', 
+                mesaj: isAbone ? 'Otopark tamamen dolu!' : 'VIP alanlar hariç otopark kapasitesi dolu!' 
+            });
         }
 
         const yer = bosYer.recordset[0];
 
+        // 4. Veritabanına Kayıt
         await pool.request()
             .input('plaka', sql.NVarChar, temizPlaka)
             .input('parkYeriId', sql.Int, yer.ParkYeriID)
@@ -129,16 +158,17 @@ app.post('/api/giris', async (req, res) => {
 
         res.json({
             durum: 'BASARILI',
-            mesaj: 'Araç girişi kaydedildi.',
+            mesaj: isAbone ? '⭐ VIP Araç girişi yapıldı.' : 'Araç girişi kaydedildi.',
             parkEdilenYer: yer.ParkYeriAdi,
-            plaka: temizPlaka
+            plaka: temizPlaka,
+            isVIP: isAbone
         });
     } catch (err) {
-        res.status(500).json({ durum: 'HATA', mesaj: 'İşlem sırasında hata oluştu', detay: err.message });
+        res.status(500).json({ durum: 'HATA', mesaj: 'Giriş işleminde hata oluştu', detay: err.message });
     }
 });
 
-// --- ARAÇ ÇIKIŞ API'Sİ (PLAKA BAZLI) ---
+// --- ARAÇ ÇIKIŞ API'Sİ (V2 - ABONELİK AŞIMI DESTEKLİ) ---
 app.post('/api/cikis', async (req, res) => {
     const { plaka } = req.body;
     if (!plaka) return res.status(400).json({ durum: 'HATA', mesaj: 'Lütfen bir plaka girin!' });
@@ -149,10 +179,7 @@ app.post('/api/cikis', async (req, res) => {
         const pool = await poolPromise;
         const kayitSorgusu = await pool.request()
             .input('plaka', sql.NVarChar, temizPlaka)
-            .query(`
-                SELECT KayitID, CONVERT(varchar(19), GirisSaati, 126) + '+03:00' as GirisSaati
-                FROM GirisCikisKayitlari WHERE Plaka = @plaka AND CikisSaati IS NULL
-            `);
+            .query(`SELECT KayitID, CONVERT(varchar(19), GirisSaati, 126) + '+03:00' as GirisSaati FROM GirisCikisKayitlari WHERE Plaka = @plaka AND CikisSaati IS NULL`);
 
         if (kayitSorgusu.recordset.length === 0) {
             return res.status(404).json({ durum: 'HATA', mesaj: 'İçeride bu plakaya ait araç bulunamadı.' });
@@ -161,11 +188,34 @@ app.post('/api/cikis', async (req, res) => {
         const kayit = kayitSorgusu.recordset[0];
         const girisSaati = new Date(kayit.GirisSaati);
         const cikisSaati = new Date();
-        const farkMilisaniye = cikisSaati - girisSaati;
-        const farkDakika = Math.ceil(farkMilisaniye / (1000 * 60));
+        const toplamIcerideKalmaMilisaniye = cikisSaati - girisSaati;
+        const toplamFarkDakika = Math.ceil(toplamIcerideKalmaMilisaniye / (1000 * 60));
+
+        let ucretlendirilecekDakika = toplamFarkDakika;
+        let aboneMesaji = '';
+
+        // Abone kontrolü ve Süre Aşımı Hesabı
+        const aboneKontrol = await pool.request()
+            .input('plaka', sql.NVarChar, temizPlaka)
+            .query('SELECT TOP 1 BitisTarihi FROM Aboneler WHERE Plaka = @plaka AND AktifMi = 1 ORDER BY BitisTarihi DESC');
+
+        if (aboneKontrol.recordset.length > 0) {
+            const bitisTarihi = new Date(aboneKontrol.recordset[0].BitisTarihi);
+
+            if (bitisTarihi >= cikisSaati) {
+                // Senaryo 1: Çıkış anında abonelik hala devam ediyor
+                ucretlendirilecekDakika = 0;
+                aboneMesaji = ' (Abone Çıkışı - 0₺)';
+            } else if (bitisTarihi > girisSaati && bitisTarihi < cikisSaati) {
+                // Senaryo 2: Araç içerideyken abonelik süresi bitti!
+                const asimMilisaniye = cikisSaati - bitisTarihi;
+                ucretlendirilecekDakika = Math.ceil(asimMilisaniye / (1000 * 60));
+                aboneMesaji = ` (Abonelik içerideyken bitti! Sadece aşılan ${ucretlendirilecekDakika} dakika için borç yansıtıldı.)`;
+            }
+        }
 
         const ayar = await fiyatlandirmaGetir(pool);
-        const toplamUcret = ucretHesapla(farkDakika, ayar);
+        const toplamUcret = ucretHesapla(ucretlendirilecekDakika, ayar);
 
         await pool.request()
             .input('kayitId', sql.Int, kayit.KayitID)
@@ -178,13 +228,63 @@ app.post('/api/cikis', async (req, res) => {
 
         res.json({
             durum: 'BASARILI',
-            mesaj: 'Araç çıkışı yapıldı.',
+            mesaj: `Araç çıkışı yapıldı.${aboneMesaji}`,
             plaka: temizPlaka,
-            icerideKalinanSure: `${farkDakika} dakika`,
+            icerideKalinanSure: `${toplamFarkDakika} dk`,
+            ucretlendirilenSure: `${ucretlendirilecekDakika} dk`,
             toplamUcret: `${toplamUcret} TL`
         });
     } catch (err) {
         res.status(500).json({ durum: 'HATA', mesaj: 'Sunucu hatası', detay: err.message });
+    }
+});
+
+// --- YENİ: ABONE YÖNETİMİ API'LERİ ---
+
+// 1. Yeni Abone Ekleme
+app.post('/api/aboneler', async (req, res) => {
+    const { plaka, adSoyad, telefon } = req.body;
+    if (!plaka || !adSoyad) return res.status(400).json({ durum: 'HATA', mesaj: 'Plaka ve Ad Soyad zorunludur.' });
+
+    const temizPlaka = plaka.trim().toUpperCase().replace(/\s+/g, ' ');
+
+    try {
+        const pool = await poolPromise;
+        // Bitiş tarihini şu anki zamana tam 30 gün ekleyerek buluyoruz.
+        await pool.request()
+            .input('plaka', sql.NVarChar, temizPlaka)
+            .input('ad', sql.NVarChar, adSoyad)
+            .input('tel', sql.NVarChar, telefon || '')
+            .query(`
+                INSERT INTO Aboneler (Plaka, AdSoyad, Telefon, BaslangicTarihi, BitisTarihi, AktifMi)
+                VALUES (@plaka, @ad, @tel, GETDATE(), DATEADD(day, 30, GETDATE()), 1)
+            `);
+        
+        res.json({ durum: 'BASARILI', mesaj: `${temizPlaka} plakalı araç için 30 günlük standart (3000₺) abonelik başlatıldı.` });
+    } catch (err) {
+        if (err.message.includes('UNIQUE')) {
+            return res.status(400).json({ durum: 'HATA', mesaj: 'Bu plaka zaten abone sistemine kayıtlı!' });
+        }
+        res.status(500).json({ durum: 'HATA', mesaj: 'Kayıt başarısız.', detay: err.message });
+    }
+});
+
+// 2. Aktif Aboneleri Listeleme
+app.get('/api/aboneler', async (req, res) => {
+    try {
+        const pool = await poolPromise;
+        const sonuc = await pool.request().query(`
+            SELECT AboneID, Plaka, AdSoyad, Telefon, 
+                   CONVERT(varchar(16), BaslangicTarihi, 120) as Baslama, 
+                   CONVERT(varchar(16), BitisTarihi, 120) as Bitis,
+                   CASE WHEN BitisTarihi > GETDATE() THEN 1 ELSE 0 END as SureGecerliMi
+            FROM Aboneler 
+            WHERE AktifMi = 1
+            ORDER BY BitisTarihi DESC
+        `);
+        res.json(sonuc.recordset);
+    } catch (err) {
+        res.status(500).json({ durum: 'HATA', mesaj: 'Aboneler getirilemedi.' });
     }
 });
 
@@ -415,8 +515,6 @@ app.put('/api/fiyatlandirma', async (req, res) => {
         res.status(500).json({ durum: 'HATA', mesaj: 'Fiyatlandırma güncellenemedi', detay: err.message });
     }
 });
-
-
 
 // --- 6) TARİFE (KALIŞ SÜRESİ) DAĞILIMI (Son 30 Gün) ---
 app.get('/api/raporlar/tarife-dagilimi', async (req, res) => {

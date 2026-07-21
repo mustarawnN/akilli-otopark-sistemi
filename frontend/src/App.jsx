@@ -23,7 +23,9 @@ import {
   ExclamationTriangleIcon,
   PresentationChartLineIcon,
   MoonIcon,
-  SunIcon
+  SunIcon,
+  StarIcon,
+  UserPlusIcon
 } from '@heroicons/react/24/solid';
 import musparkLogo from './assets/musparklogo.png';
 
@@ -309,7 +311,7 @@ function ReportsPage({ geriDon }) {
 // ==========================================
 // MAKET GÖRÜNÜMÜ (U KROKİ) BİLEŞENİ
 // ==========================================
-function MaketKrokisi({ parkYerleri, seciliParkYeriAyarla }) {
+function MaketKrokisi({ parkYerleri, seciliParkYeriAyarla, aboneler }) {
   const yerGetir = (adi) => parkYerleri.find(y => y.ParkYeriAdi === adi);
 
   // Maketindeki fiziksel dizilime göre gruplandırma
@@ -321,20 +323,31 @@ function MaketKrokisi({ parkYerleri, seciliParkYeriAyarla }) {
     const spot = yerGetir(spotAdi);
     if (!spot) return <div className="w-20 h-28 md:w-24 md:h-32 bg-slate-200 dark:bg-slate-700 rounded-xl opacity-50 flex items-center justify-center font-bold text-slate-400">{spotAdi}</div>;
 
+    // VIP Kontrolü
+    const isVIP = spot.DoluMu && aboneler.some(a => a.Plaka === spot.MevcutPlaka);
+
     return (
       <div 
         onClick={() => seciliParkYeriAyarla(spot)} 
         className={`cursor-pointer relative w-20 h-28 md:w-24 md:h-32 rounded-xl flex flex-col items-center justify-between p-2 md:p-3 border-4 transition-all shadow-md group overflow-hidden ${
           spot.DoluMu 
-            ? 'bg-red-500/10 border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.4)]' 
+            ? (isVIP ? 'bg-amber-500/10 border-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.4)]' : 'bg-red-500/10 border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.4)]')
             : 'bg-emerald-500/10 border-emerald-400 border-dashed hover:bg-emerald-500/20'
         }`}
       >
-        <span className={`text-lg md:text-xl font-black ${spot.DoluMu ? 'text-red-500' : 'text-emerald-500'}`}>{spot.ParkYeriAdi}</span>
+        <span className={`text-lg md:text-xl font-black ${spot.DoluMu ? (isVIP ? 'text-amber-500' : 'text-red-500') : 'text-emerald-500'}`}>
+          {spot.ParkYeriAdi}
+        </span>
+
+        {isVIP && (
+          <div className="absolute top-1 right-1 bg-amber-500 rounded-full p-0.5 shadow-md" title="VIP Abone">
+            <StarIcon className="w-3 h-3 md:w-4 md:h-4 text-white" />
+          </div>
+        )}
         
         {spot.DoluMu ? (
-          <div className="w-full bg-white dark:bg-slate-800 border-2 border-slate-300 rounded px-1 py-1.5 md:py-2 text-center z-10 transform group-hover:scale-105 transition-transform flex flex-col items-center">
-            <div className="bg-blue-600 h-1.5 w-full rounded-t-sm mb-1"></div>
+          <div className={`w-full bg-white dark:bg-slate-800 border-2 rounded px-1 py-1.5 md:py-2 text-center z-10 transform group-hover:scale-105 transition-transform flex flex-col items-center ${isVIP ? 'border-amber-400' : 'border-slate-300'}`}>
+            <div className={`${isVIP ? 'bg-amber-500' : 'bg-blue-600'} h-1.5 w-full rounded-t-sm mb-1`}></div>
             <span className="text-[9px] md:text-[11px] font-bold text-slate-800 dark:text-slate-100 tracking-wider break-all">{spot.MevcutPlaka}</span>
           </div>
         ) : (
@@ -400,6 +413,14 @@ export default function App() {
   const [duzenlemeModu, setDuzenlemeModu] = useState(false);
   const [fiyatKaydediliyor, setFiyatKaydediliyor] = useState(false);
   
+  // Abonelik State'leri
+  const [abonelerModalAcik, setAbonelerModalAcik] = useState(false);
+  const [aboneler, setAboneler] = useState([]);
+  const [yeniAbonePlaka, setYeniAbonePlaka] = useState('');
+  const [yeniAboneAd, setYeniAboneAd] = useState('');
+  const [yeniAboneTel, setYeniAboneTel] = useState('');
+  const [aboneEkleHata, setAboneEkleHata] = useState('');
+
   const [aramaMetni, setAramaMetni] = useState('');
   const [suAn, setSuAn] = useState(new Date());
   const [gorunum, setGorunum] = useState('panel');
@@ -635,6 +656,40 @@ export default function App() {
     }
   };
 
+  // Yeni Abonelik Ekleme İsteği
+  const yeniAboneEkle = async (e) => {
+    e.preventDefault();
+    const temizPlaka = yeniAbonePlaka.trim().toUpperCase();
+    const plakaRegex = /^\d{2}\s?[A-PRSTUVYZ]{1,3}\s?\d{2,4}$/;
+
+    if (!plakaRegex.test(temizPlaka)) {
+      setAboneEkleHata('Geçersiz plaka formatı! Örn: 34 ABC 1234'); 
+      return;
+    }
+
+    try {
+      const res = await fetch('http://127.0.0.1:8080/api/aboneler', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plaka: temizPlaka, adSoyad: yeniAboneAd, telefon: yeniAboneTel })
+      });
+      const data = await res.json();
+
+      if (data.durum === 'BASARILI') {
+        toastEkle('basarili', data.mesaj);
+        setYeniAbonePlaka('');
+        setYeniAboneAd('');
+        setYeniAboneTel('');
+        setAboneEkleHata('');
+        durumuVeIstatistigiGetir(); // Listeyi yenile
+      } else {
+        setAboneEkleHata(data.mesaj);
+      }
+    } catch (error) {
+      setAboneEkleHata('Sunucuya bağlanılamadı!');
+    }
+  };
+
   const sistemdenCikisYap = () => {
     setIsLoggedIn(false); setKullaniciAdi(''); setSifre(''); setParkYerleri([]);
     tumToastlariTemizle(); setBiletModalAcik(false); setCikisOnayAcik(false); setGorunum('panel');
@@ -658,6 +713,12 @@ export default function App() {
       const resGecmis = await fetch(`http://127.0.0.1:8080/api/islem-gecmisi?t=${zamanDamgasi}`, { cache: 'no-store' });
       let gecmis = [];
       if (resGecmis.ok) gecmis = await resGecmis.json();
+
+      // Aboneleri de Çek (VIP Rozetleri için)
+      const resAboneler = await fetch(`http://127.0.0.1:8080/api/aboneler?t=${zamanDamgasi}`, { cache: 'no-store' });
+      if (resAboneler.ok) {
+        setAboneler(await resAboneler.json());
+      }
 
       const girisler = yerler.filter(y => y.DoluMu).map(y => ({
         id: `g_${y.ParkYeriID}_${y.SonGuncelleme}`,
@@ -716,7 +777,7 @@ export default function App() {
       });
       const data = await res.json();
       if (data.durum === 'BASARILI') {
-        toastEkle('basarili', `Araç Girdi: ${data.parkEdilenYer} (Plaka: ${data.plaka})`);
+        toastEkle('basarili', `${data.mesaj}`);
         setAracGirisModalAcik(false); durumuVeIstatistigiGetir();
       } else {
         setGirisHata(data.mesaj);
@@ -734,7 +795,7 @@ export default function App() {
       });
       const data = await res.json();
       if (data.durum === 'BASARILI') {
-        toastEkle('basarili', `Çıkış Başarılı! Tahsil edilen ücret: ${data.toplamUcret} ₺`);
+        toastEkle('basarili', data.mesaj);
         durumuVeIstatistigiGetir();
       } else {
         toastEkle('hata', `Hata: ${data.mesaj}`);
@@ -789,7 +850,18 @@ export default function App() {
     return { dakika: toplamDakika, metin: metin || '1 Dk' };
   };
 
-  const anlikUcretHesapla = (dakika) => {
+  const anlikUcretHesapla = (dakika, plaka) => {
+    // 1. Abonelik Kontrolü
+    const abone = aboneler.find(a => a.Plaka === plaka);
+    if (abone) {
+        // Aboneliğin süresi geçmiş mi kontrol et
+        const bitisTarihi = new Date(abone.Bitis);
+        if (bitisTarihi >= suAn) {
+            return 0; // Aboneliği devam ediyor, ücret 0
+        }
+        // Eğer içerideyken süresi bitmişse sadece aradaki fark hesaplanır (backend'de yapılıyor ama ekranda tahmini göstermek istersen tam mantık gerekir. Şimdilik abone ise 0 gösterelim)
+    }
+
     if (!fiyatlandirma) return 0;
     if (dakika <= 30) return 0;
     if (dakika <= 60) return Number(fiyatlandirma.Tarife0_1Saat);
@@ -812,6 +884,8 @@ export default function App() {
       (yer.ParkYeriAdi.toLowerCase().includes(arama))
     );
   });
+
+  const seciliAracIsVIP = seciliParkYeri?.DoluMu && aboneler.some(a => a.Plaka === seciliParkYeri.MevcutPlaka);
 
   if (!isLoggedIn) {
     return (
@@ -951,9 +1025,9 @@ export default function App() {
               </div>
             </div>
 
-            <div className="flex flex-col 2xl:flex-row justify-between items-center bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 gap-4">
+            <div className="flex flex-wrap lg:flex-nowrap justify-between items-center bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 gap-4">
               
-              <div className="flex flex-wrap gap-2.5 w-full 2xl:w-auto items-center">
+              <div className="flex flex-wrap gap-2.5 w-full lg:w-auto items-center">
                 
                 <button onClick={aracGirisModaliAc} className="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-5 rounded-lg shadow-sm transition-transform hover:-translate-y-0.5 flex items-center justify-center gap-2">
                   <PlusCircleIcon className="w-5 h-5" /> Yeni Araç
@@ -965,19 +1039,25 @@ export default function App() {
 
                 <div className="hidden sm:block h-8 w-px bg-slate-200 dark:bg-slate-600 mx-1"></div>
 
+                <button onClick={() => setAbonelerModalAcik(true)} className="flex-1 sm:flex-none bg-orange-500 hover:bg-orange-600 text-white font-bold py-2.5 px-4 rounded-lg shadow-sm transition-transform hover:-translate-y-0.5 flex items-center justify-center gap-2">
+                  <StarIcon className="w-5 h-5" /> Aboneler
+                </button>
+
                 <button onClick={islemGecmisiniGetir} className="flex-1 sm:flex-none bg-teal-600 hover:bg-teal-700 text-white font-bold py-2.5 px-4 rounded-lg shadow-sm transition-transform hover:-translate-y-0.5 flex items-center justify-center gap-2">
                   <ClipboardDocumentListIcon className="w-5 h-5" /> Geçmiş
                 </button>
+
                 <button onClick={() => setGorunum('raporlar')} className="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded-lg shadow-sm transition-transform hover:-translate-y-0.5 flex items-center justify-center gap-2">
                   <ArrowTrendingUpIcon className="w-5 h-5" /> Raporlar
                 </button>
+                
                 <button onClick={fiyatlandirmaModaliniAc} className="flex-1 sm:flex-none bg-amber-500 hover:bg-amber-600 text-white font-bold py-2.5 px-4 rounded-lg shadow-sm transition-transform hover:-translate-y-0.5 flex items-center justify-center gap-2">
                   <CurrencyDollarIcon className="w-5 h-5" /> Tarife
                 </button>
                 
               </div>
 
-              <div className="relative w-full 2xl:w-64 shrink-0">
+              <div className="relative w-full lg:w-64 shrink-0">
                 <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 dark:text-slate-500" />
                 <input
                   type="text"
@@ -994,6 +1074,7 @@ export default function App() {
               <MaketKrokisi 
                 parkYerleri={filtrelenmisParkYerleri} 
                 seciliParkYeriAyarla={setSeciliParkYeri} 
+                aboneler={aboneler}
               />
             </div>
             
@@ -1019,7 +1100,9 @@ export default function App() {
                         {islem.tip === 'GIRIS' ? (
                           <><strong className="text-blue-600 dark:text-blue-400">{islem.yer}</strong> alanına <span className="font-semibold">girdi</span>.</>
                         ) : (
-                          <><strong className="text-emerald-600 dark:text-emerald-400">{islem.yer}</strong> alanından çıktı. <span className="text-emerald-600 dark:text-emerald-400 font-bold ml-1">+{islem.ucret}₺</span></>
+                          <><strong className="text-emerald-600 dark:text-emerald-400">{islem.yer}</strong> alanından çıktı. 
+                            {islem.ucret == 0 ? <span className="text-orange-500 font-bold ml-1">(Abone)</span> : <span className="text-emerald-600 dark:text-emerald-400 font-bold ml-1">+{islem.ucret}₺</span>}
+                          </>
                         )}
                       </p>
                     </div>
@@ -1043,9 +1126,9 @@ export default function App() {
           <div className="absolute inset-0 bg-slate-900 bg-opacity-40 transition-opacity" onClick={() => setSeciliParkYeri(null)}></div>
           
           <div className="relative w-full max-w-sm bg-white dark:bg-slate-800 h-full shadow-2xl flex flex-col animate-[slideInRight_0.3s_ease-out]">
-            <div className={`p-5 text-white flex justify-between items-center ${seciliParkYeri.DoluMu ? 'bg-red-600' : 'bg-emerald-600'}`}>
+            <div className={`p-5 text-white flex justify-between items-center ${seciliParkYeri.DoluMu ? (seciliAracIsVIP ? 'bg-amber-500' : 'bg-red-600') : 'bg-emerald-600'}`}>
               <h2 className="text-xl font-bold flex items-center gap-2">
-                {seciliParkYeri.DoluMu ? <TruckIcon className="w-6 h-6"/> : <CheckBadgeIcon className="w-6 h-6"/>}
+                {seciliParkYeri.DoluMu ? (seciliAracIsVIP ? <StarIcon className="w-6 h-6"/> : <TruckIcon className="w-6 h-6"/>) : <CheckBadgeIcon className="w-6 h-6"/>}
                 {seciliParkYeri.ParkYeriAdi} Detayları
               </h2>
               <button onClick={() => setSeciliParkYeri(null)} className="text-white hover:text-slate-200 font-bold text-3xl leading-none">&times;</button>
@@ -1054,8 +1137,13 @@ export default function App() {
             <div className="p-6 flex-1 overflow-y-auto">
               {seciliParkYeri.DoluMu ? (
                 <div className="space-y-6">
-                  <div className="bg-slate-50 dark:bg-slate-700/50 p-4 rounded-xl border border-slate-200 dark:border-slate-600 text-center shadow-sm">
-                    <p className="text-sm text-slate-500 dark:text-slate-400 font-bold mb-3">Araç Plakası</p>
+                  <div className="bg-slate-50 dark:bg-slate-700/50 p-4 rounded-xl border border-slate-200 dark:border-slate-600 text-center shadow-sm relative">
+                    {seciliAracIsVIP && (
+                      <span className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-amber-500 text-white px-3 py-0.5 rounded-full text-xs font-bold flex items-center gap-1 shadow-md">
+                        <StarIcon className="w-3 h-3"/> VIP ABONE
+                      </span>
+                    )}
+                    <p className="text-sm text-slate-500 dark:text-slate-400 font-bold mb-3 mt-2">Araç Plakası</p>
                     <div className="flex items-center w-full max-w-[200px] h-12 bg-white rounded border-2 border-slate-300 shadow-sm overflow-hidden mx-auto">
                       <div className="bg-blue-600 h-full w-8 flex flex-col items-center justify-end pb-1 shrink-0">
                         <span className="text-white text-[10px] font-bold leading-none">TR</span>
@@ -1082,7 +1170,9 @@ export default function App() {
                     </div>
                     <div className="flex justify-between items-center pt-2">
                       <span className="text-slate-500 dark:text-slate-400 font-bold flex items-center gap-1.5"><BanknotesIcon className="w-5 h-5 text-emerald-500"/> Güncel Ücret</span>
-                      <span className="font-black text-emerald-600 dark:text-emerald-400 text-2xl">{anlikUcretHesapla(sureHesapla(seciliParkYeri.SonGuncelleme).dakika)} ₺</span>
+                      <span className="font-black text-emerald-600 dark:text-emerald-400 text-2xl">
+                        {anlikUcretHesapla(sureHesapla(seciliParkYeri.SonGuncelleme).dakika, seciliParkYeri.MevcutPlaka)} ₺
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -1104,6 +1194,102 @@ export default function App() {
               ) : (
                 <button onClick={() => { setSeciliParkYeri(null); aracGirisModaliAc(); }} className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-lg transition-colors shadow-md">Yeni Araç Al</button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- ABONELER MODALI --- */}
+      {abonelerModalAcik && (
+        <div className="fixed inset-0 bg-slate-900 bg-opacity-60 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="bg-orange-500 p-5 text-white flex justify-between items-center shrink-0">
+              <h2 className="text-xl font-bold flex items-center gap-2">
+                <StarIcon className="w-6 h-6" /> Abonelik (VIP) Yönetimi
+              </h2>
+              <button onClick={() => setAbonelerModalAcik(false)} className="text-white hover:text-orange-200 font-bold text-2xl leading-none">&times;</button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto flex flex-col md:flex-row gap-6">
+              
+              {/* Sol Taraf - Yeni Abone Kayıt Formu */}
+              <div className="w-full md:w-1/3 bg-slate-50 dark:bg-slate-700/50 p-5 rounded-xl border border-slate-200 dark:border-slate-600 h-fit">
+                <h3 className="font-bold text-slate-800 dark:text-slate-100 mb-4 flex items-center gap-2 border-b border-slate-200 dark:border-slate-600 pb-2">
+                  <UserPlusIcon className="w-5 h-5 text-orange-500" /> Yeni Abone Kaydı
+                </h3>
+                <form onSubmit={yeniAboneEkle} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">Araç Plakası</label>
+                    <input type="text" value={yeniAbonePlaka} onChange={(e) => setYeniAbonePlaka(e.target.value.toUpperCase())} placeholder="34 ABC 1234" className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 focus:ring-2 focus:ring-orange-500 outline-none uppercase font-bold" required />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">Ad Soyad</label>
+                    <input type="text" value={yeniAboneAd} onChange={(e) => setYeniAboneAd(e.target.value)} placeholder="Ahmet Yılmaz" className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 focus:ring-2 focus:ring-orange-500 outline-none" required />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">Telefon No</label>
+                    <input type="text" value={yeniAboneTel} onChange={(e) => setYeniAboneTel(e.target.value)} placeholder="05XX XXX XX XX" className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 focus:ring-2 focus:ring-orange-500 outline-none" />
+                  </div>
+                  <div className="bg-orange-100 dark:bg-orange-900/40 p-3 rounded-lg text-xs text-orange-800 dark:text-orange-300 font-medium">
+                    Kayıt işlemi yapıldığında seçili plaka için anından itibaren <strong className="font-bold">30 Günlük</strong> abonelik başlatılır. Ücret: {fiyatlandirma ? Number(fiyatlandirma.AylikAbonelikUcreti).toFixed(0) : '3000'} ₺
+                  </div>
+                  {aboneEkleHata && <p className="text-red-500 text-xs font-bold">{aboneEkleHata}</p>}
+                  <button type="submit" className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-2.5 rounded-lg transition-colors mt-2 shadow-md">
+                    Abone Yap
+                  </button>
+                </form>
+              </div>
+
+              {/* Sağ Taraf - Mevcut Aboneler Tablosu */}
+              <div className="w-full md:w-2/3">
+                <h3 className="font-bold text-slate-800 dark:text-slate-100 mb-4 flex items-center gap-2 border-b border-slate-200 dark:border-slate-700 pb-2">
+                  <StarIcon className="w-5 h-5 text-orange-500" /> Aktif VIP Aboneler
+                </h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b-2 border-slate-200 dark:border-slate-700">
+                        <th className="py-2 text-slate-500 dark:text-slate-400 font-bold text-xs uppercase tracking-wider">Plaka</th>
+                        <th className="py-2 text-slate-500 dark:text-slate-400 font-bold text-xs uppercase tracking-wider">Ad Soyad</th>
+                        <th className="py-2 text-slate-500 dark:text-slate-400 font-bold text-xs uppercase tracking-wider">Bitiş Tarihi</th>
+                        <th className="py-2 text-slate-500 dark:text-slate-400 font-bold text-xs uppercase tracking-wider text-center">Durum</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {aboneler.length === 0 ? (
+                        <tr><td colSpan="4" className="text-center py-8 text-slate-500 font-medium">Sistemde aktif abone bulunmuyor.</td></tr>
+                      ) : (
+                        aboneler.map((abone) => {
+                          const bitisGectiMi = new Date(abone.Bitis) < suAn;
+                          return (
+                            <tr key={abone.AboneID} className="border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50">
+                              <td className="py-3 font-bold text-slate-800 dark:text-slate-100 tracking-wider">
+                                <span className="bg-slate-200 dark:bg-slate-600 px-2 py-1 rounded text-sm">{abone.Plaka}</span>
+                              </td>
+                              <td className="py-3 text-sm text-slate-700 dark:text-slate-300 font-medium">{abone.AdSoyad}</td>
+                              <td className="py-3 text-sm text-slate-600 dark:text-slate-400">{abone.Bitis.substring(0,10)}</td>
+                              <td className="py-3 text-center">
+                                {bitisGectiMi ? (
+                                  <span className="bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400 px-2 py-0.5 rounded text-xs font-bold">Süresi Bitti</span>
+                                ) : (
+                                  <span className="bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-400 px-2 py-0.5 rounded text-xs font-bold">Aktif VIP</span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+            </div>
+            
+            <div className="bg-slate-100 dark:bg-slate-700 p-4 flex justify-end border-t border-slate-200 dark:border-slate-600 shrink-0">
+              <button onClick={() => setAbonelerModalAcik(false)} className="bg-slate-600 hover:bg-slate-700 text-white font-bold py-2 px-6 rounded-lg transition-colors">
+                Kapat
+              </button>
             </div>
           </div>
         </div>
@@ -1245,6 +1431,16 @@ export default function App() {
                         </td>
                       </tr>
                     ))}
+                    <tr className="border-b border-slate-100 dark:border-slate-700">
+                      <td className="py-3 font-medium text-slate-700 dark:text-slate-200 flex items-center gap-1.5 text-orange-600 dark:text-orange-400"><StarIcon className="w-4 h-4"/> Aylık Abonelik (VIP)</td>
+                      <td className="py-3 text-right">
+                        {duzenlemeModu ? (
+                          <input type="number" min="0" step="0.01" value={taslakFiyatlandirma.AylikAbonelikUcreti} onChange={(e) => fiyatAlaniniGuncelle('AylikAbonelikUcreti', e.target.value)} className="w-24 text-right px-2 py-1 rounded-lg border-2 border-orange-200 dark:border-orange-600 dark:bg-slate-700 dark:text-orange-100 focus:ring-2 focus:ring-orange-500 outline-none font-bold" />
+                        ) : (
+                          <span className="font-bold text-orange-600 dark:text-orange-400">{Number(fiyatlandirma.AylikAbonelikUcreti).toFixed(0)} ₺</span>
+                        )}
+                      </td>
+                    </tr>
                     <tr>
                       <td className="py-3 font-medium text-slate-700 dark:text-slate-200">24 saati aşan her gün</td>
                       <td className="py-3 text-right">
