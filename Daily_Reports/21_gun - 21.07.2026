@@ -1,0 +1,17 @@
+✨ Gün Sonu Raporu: Abonelik (VIP) Sistemi
+
+Yönetim panelinin kapsamını genişletmek ve düzenli müşterilere özel bir deneyim sunmak amacıyla, sisteme tam entegre bir abonelik (VIP) modülü geliştirilmiş ve hem veritabanı iş mantığı hem de kullanıcı arayüzü ile uyumlu hale getirilmiştir.
+
+🚀 Yapılan Değişiklikler
+
+Backend (Node.js/Express & SQL):
+Veritabanı şeması güncellenerek Aboneler tablosu oluşturulmuş ve 
+FiyatlandirmaAyarlari tablosuna standart aylık abonelik ücreti eklenmiştir.
+Mevcut POST /api/giris uç noktası (endpoint), sistemdeki kayıtlı plakaları tanıyacak ve VIP araçları doğrudan kendilerine ayrılan
+A1 ve A2 bloklarına yönlendirecek şekilde yeniden yazıldı.
+Çıkış işlemleri (/api/cikis), aktif abonelere 0 ₺ borç çıkarırken; araç içerisindeyken abonelik süresi dolan müşteriler için yalnızca süreyi aştıkları kısımdan ücret hesaplayacak akıllı bir algoritmaya kavuşturuldu. Ayrıca abonelik yönetimi için yeni API rotaları oluşturuldu.
+
+Frontend (React):
+Yönetim paneline, aktif abonelerin listelendiği ve yeni kayıtların alınabildiği "Aboneler" yönetim ekranı eklendi. 
+Otopark durumunu gösteren interaktif U-Kroki bileşeni, VIP araçlar sisteme giriş yaptığında plakanın yanında altın renkli bir rozet (⭐) ile görsel bildirim verecek şekilde güncellendi.
+Araç detay modallarındaki anlık ücret hesaplamaları ve paneldeki canlı akış (Live Feed) bildirimleri, abonelere özel statüleri yansıtacak şekilde optimize edildi.
