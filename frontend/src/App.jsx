@@ -314,7 +314,7 @@ function ReportsPage({ geriDon }) {
 }
 
 // ==========================================
-// PROFIL SAYFASI BİLEŞENİ
+// PROFIL SAYFASI BİLEŞENİ (YENİLENMİŞ)
 // ==========================================
 function ProfilPage({ geriDon, aktifKullanici }) {
   const [profil, setProfil] = useState(null);
@@ -325,6 +325,9 @@ function ProfilPage({ geriDon, aktifKullanici }) {
   const [yeniSifreTekrar, setYeniSifreTekrar] = useState('');
   const [mesaj, setMesaj] = useState({ tip: '', metin: '' });
   const [islemYapiliyor, setIslemYapiliyor] = useState(false);
+  
+  // Hızlı Notlar State'i
+  const [hizliNot, setHizliNot] = useState('');
 
   useEffect(() => {
     const profilBilgileriniGetir = async () => {
@@ -341,6 +344,12 @@ function ProfilPage({ geriDon, aktifKullanici }) {
       }
     };
     profilBilgileriniGetir();
+
+    // Sayfa yüklendiğinde Local Storage'dan o kullanıcıya ait notu çek
+    const kayitliNot = localStorage.getItem(`muspark_not_${aktifKullanici}`);
+    if (kayitliNot) {
+      setHizliNot(kayitliNot);
+    }
   }, [aktifKullanici]);
 
   const sifreGuncelle = async (e) => {
@@ -378,6 +387,8 @@ function ProfilPage({ geriDon, aktifKullanici }) {
     }
   };
 
+  const getInitials = (name) => name ? name.substring(0, 2).toUpperCase() : 'US';
+
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-slate-900 p-6 font-sans text-slate-800 dark:text-slate-100 transition-colors duration-300">
       <div className="max-w-5xl mx-auto">
@@ -390,7 +401,7 @@ function ProfilPage({ geriDon, aktifKullanici }) {
             <h1 className="text-xl font-extrabold text-slate-800 dark:text-slate-100 tracking-tight flex items-center gap-2">
               <UserCircleIcon className="w-6 h-6 text-blue-600" /> Hesap ve Profil Ayarları
             </h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Hesap bilgilerinizi görüntüleyin ve güvenliğinizi yönetin.</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Kişisel bilgilerinizi, notlarınızı ve güvenliğinizi yönetin.</p>
           </div>
         </div>
 
@@ -399,31 +410,59 @@ function ProfilPage({ geriDon, aktifKullanici }) {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             
-            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 border border-slate-200 dark:border-slate-700 md:col-span-1 h-fit">
-              <div className="flex flex-col items-center text-center border-b border-slate-100 dark:border-slate-700 pb-6 mb-6">
-                <div className="w-24 h-24 bg-blue-100 dark:bg-blue-900/40 rounded-full flex items-center justify-center mb-4">
-                  <UserCircleIcon className="w-16 h-16 text-blue-600 dark:text-blue-400" />
-                </div>
-                <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-wider">{profil?.KullaniciAdi}</h2>
-                <span className="inline-flex items-center gap-1.5 mt-2 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 px-3 py-1 rounded-full text-xs font-bold">
-                  <ShieldCheckIcon className="w-4 h-4" /> {profil?.Rol}
-                </span>
-              </div>
+            {/* Sol Kolon: Avatar Kartı + Hızlı Notlar */}
+            <div className="md:col-span-1 flex flex-col gap-6">
               
-              <div className="space-y-4">
-                <div className="flex items-center gap-3 text-slate-600 dark:text-slate-300">
-                  <CalendarDaysIcon className="w-5 h-5 text-slate-400" />
-                  <div>
-                    <p className="text-xs text-slate-400 font-bold uppercase">Hesap Açılış Tarihi</p>
-                    <p className="font-semibold">{profil?.KayitTarihi}</p>
+              {/* Profil Kartı (Dinamik Avatar) */}
+              <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 border border-slate-200 dark:border-slate-700 h-fit">
+                <div className="flex flex-col items-center text-center border-b border-slate-100 dark:border-slate-700 pb-6 mb-6">
+                  {/* DİNAMİK AVATAR */}
+                  <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-black text-4xl shadow-lg mb-4">
+                    {getInitials(profil?.KullaniciAdi)}
+                  </div>
+                  <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-wider">{profil?.KullaniciAdi}</h2>
+                  <span className="inline-flex items-center gap-1.5 mt-2 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 px-3 py-1 rounded-full text-xs font-bold">
+                    <ShieldCheckIcon className="w-4 h-4" /> {profil?.Rol}
+                  </span>
+                </div>
+                
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3 text-slate-600 dark:text-slate-300">
+                    <CalendarDaysIcon className="w-5 h-5 text-slate-400" />
+                    <div>
+                      <p className="text-xs text-slate-400 font-bold uppercase">Hesap Açılış Tarihi</p>
+                      <p className="font-semibold">{profil?.KayitTarihi}</p>
+                    </div>
                   </div>
                 </div>
               </div>
+
+              {/* Hızlı Notlar (Sticky Note) Kartı */}
+              <div className="bg-amber-50 dark:bg-amber-900/20 rounded-2xl shadow-sm p-6 border border-amber-200 dark:border-amber-800/50 h-full relative overflow-hidden flex flex-col">
+                <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-amber-400 to-orange-400"></div>
+                <h3 className="text-lg font-bold text-amber-900 dark:text-amber-400 mb-3 flex items-center gap-2 mt-1">
+                  <PencilSquareIcon className="w-5 h-5" /> Kişisel Notlar
+                </h3>
+                <textarea
+                  value={hizliNot}
+                  onChange={(e) => {
+                    setHizliNot(e.target.value);
+                    localStorage.setItem(`muspark_not_${aktifKullanici}`, e.target.value);
+                  }}
+                  placeholder="Kendinize hızlı notlar alın... (Otomatik kaydedilir)"
+                  className="w-full flex-1 min-h-[150px] bg-transparent border-none resize-none outline-none text-amber-950 dark:text-amber-100 placeholder:text-amber-700/50 dark:placeholder:text-amber-200/50 font-medium text-sm leading-relaxed"
+                ></textarea>
+                <div className="text-right mt-2 text-[10px] text-amber-600/70 dark:text-amber-400/50 font-bold uppercase tracking-wider">
+                  Sadece size özel
+                </div>
+              </div>
+
             </div>
 
-            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 border border-slate-200 dark:border-slate-700 md:col-span-2">
+            {/* Sağ Kolon: Şifre Güncelleme Kartı */}
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 border border-slate-200 dark:border-slate-700 md:col-span-2 h-fit">
               <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-6 flex items-center gap-2">
-                <KeyIcon className="w-5 h-5 text-amber-500" /> Şifre Güncelleme
+                <KeyIcon className="w-5 h-5 text-blue-500" /> Şifre Güncelleme
               </h3>
 
               {mesaj.metin && (
@@ -1052,6 +1091,9 @@ export default function App() {
 
   const seciliAracIsVIP = seciliParkYeri?.DoluMu && aboneler.some(a => a.Plaka === seciliParkYeri.MevcutPlaka);
 
+  // Avatar baş harfi hesaplama yardımcı fonksiyonu
+  const getInitials = (name) => name ? name.substring(0, 2).toUpperCase() : 'US';
+
   if (!isLoggedIn) {
     return (
       <div className="min-h-screen bg-slate-100 dark:bg-slate-900 flex items-center justify-center p-4 transition-colors duration-300">
@@ -1114,12 +1156,18 @@ export default function App() {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            {/* DİNAMİK AVATARLI PROFİL BUTONU */}
             <button 
               onClick={() => setGorunum('profil')} 
-              className="bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 font-bold py-2 px-4 rounded-lg transition-colors flex items-center gap-2 shadow-sm border-2 border-slate-200 dark:border-slate-600"
+              className="bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold py-1.5 px-3 rounded-lg transition-colors flex items-center gap-2 shadow-sm border border-slate-200 dark:border-slate-700"
+              title="Profil ve Hesap Ayarları"
             >
-              <UserCircleIcon className="w-5 h-5" /> <span className="hidden sm:inline">Profil</span>
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-[11px] tracking-wider shadow-sm">
+                {getInitials(aktifKullanici)}
+              </div>
+              <span className="hidden sm:inline">Profil</span>
             </button>
+            <div className="hidden sm:block h-8 w-px bg-slate-200 dark:bg-slate-700"></div>
             <button
               onClick={karanlikModuDegistir}
               className="bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 font-bold p-2.5 rounded-lg transition-colors shadow-sm border-2 border-slate-200 dark:border-slate-600"
