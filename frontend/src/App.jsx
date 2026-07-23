@@ -25,7 +25,12 @@ import {
   MoonIcon,
   SunIcon,
   StarIcon,
-  UserPlusIcon
+  UserPlusIcon,
+  UserCircleIcon,
+  ShieldCheckIcon,
+  CalendarDaysIcon,
+  LockClosedIcon,
+  KeyIcon
 } from '@heroicons/react/24/solid';
 import musparkLogo from './assets/musparklogo.png';
 
@@ -302,6 +307,171 @@ function ReportsPage({ geriDon }) {
               </div>
             </div>
           </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
+// PROFIL SAYFASI BİLEŞENİ
+// ==========================================
+function ProfilPage({ geriDon, aktifKullanici }) {
+  const [profil, setProfil] = useState(null);
+  const [yukleniyor, setYukleniyor] = useState(true);
+  
+  const [eskiSifre, setEskiSifre] = useState('');
+  const [yeniSifre, setYeniSifre] = useState('');
+  const [yeniSifreTekrar, setYeniSifreTekrar] = useState('');
+  const [mesaj, setMesaj] = useState({ tip: '', metin: '' });
+  const [islemYapiliyor, setIslemYapiliyor] = useState(false);
+
+  useEffect(() => {
+    const profilBilgileriniGetir = async () => {
+      try {
+        const res = await fetch(`http://127.0.0.1:8080/api/kullanici/profil?kullaniciAdi=${aktifKullanici}`);
+        const data = await res.json();
+        if (data.durum === 'BASARILI') {
+          setProfil(data.kullanici);
+        }
+      } catch (err) {
+        setMesaj({ tip: 'hata', metin: 'Profil bilgileri sunucudan alınamadı.' });
+      } finally {
+        setYukleniyor(false);
+      }
+    };
+    profilBilgileriniGetir();
+  }, [aktifKullanici]);
+
+  const sifreGuncelle = async (e) => {
+    e.preventDefault();
+    setMesaj({ tip: '', metin: '' });
+
+    if (yeniSifre !== yeniSifreTekrar) {
+      setMesaj({ tip: 'hata', metin: 'Yeni şifreler birbiriyle eşleşmiyor!' });
+      return;
+    }
+    if (yeniSifre.length < 6) {
+      setMesaj({ tip: 'hata', metin: 'Yeni şifre en az 6 karakter olmalıdır.' });
+      return;
+    }
+
+    setIslemYapiliyor(true);
+    try {
+      const res = await fetch('http://127.0.0.1:8080/api/kullanici/sifre', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kullaniciAdi: aktifKullanici, eskiSifre, yeniSifre })
+      });
+      const data = await res.json();
+      
+      if (data.durum === 'BASARILI') {
+        setMesaj({ tip: 'basarili', metin: data.mesaj });
+        setEskiSifre(''); setYeniSifre(''); setYeniSifreTekrar('');
+      } else {
+        setMesaj({ tip: 'hata', metin: data.mesaj });
+      }
+    } catch (err) {
+      setMesaj({ tip: 'hata', metin: 'Sunucuya bağlanılamadı!' });
+    } finally {
+      setIslemYapiliyor(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-100 dark:bg-slate-900 p-6 font-sans text-slate-800 dark:text-slate-100 transition-colors duration-300">
+      <div className="max-w-5xl mx-auto">
+        <div className="flex items-center gap-4 bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm mb-6 border-t-4 border-blue-600">
+          <button onClick={geriDon} className="bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 p-2.5 rounded-lg transition-colors">
+            <ArrowLeftIcon className="w-5 h-5" />
+          </button>
+          <div className="h-10 w-px bg-slate-200 dark:bg-slate-700"></div>
+          <div>
+            <h1 className="text-xl font-extrabold text-slate-800 dark:text-slate-100 tracking-tight flex items-center gap-2">
+              <UserCircleIcon className="w-6 h-6 text-blue-600" /> Hesap ve Profil Ayarları
+            </h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Hesap bilgilerinizi görüntüleyin ve güvenliğinizi yönetin.</p>
+          </div>
+        </div>
+
+        {yukleniyor ? (
+          <div className="text-center py-20 text-slate-400 dark:text-slate-500 font-semibold animate-pulse">Profil yükleniyor...</div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 border border-slate-200 dark:border-slate-700 md:col-span-1 h-fit">
+              <div className="flex flex-col items-center text-center border-b border-slate-100 dark:border-slate-700 pb-6 mb-6">
+                <div className="w-24 h-24 bg-blue-100 dark:bg-blue-900/40 rounded-full flex items-center justify-center mb-4">
+                  <UserCircleIcon className="w-16 h-16 text-blue-600 dark:text-blue-400" />
+                </div>
+                <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 uppercase tracking-wider">{profil?.KullaniciAdi}</h2>
+                <span className="inline-flex items-center gap-1.5 mt-2 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 px-3 py-1 rounded-full text-xs font-bold">
+                  <ShieldCheckIcon className="w-4 h-4" /> {profil?.Rol}
+                </span>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 text-slate-600 dark:text-slate-300">
+                  <CalendarDaysIcon className="w-5 h-5 text-slate-400" />
+                  <div>
+                    <p className="text-xs text-slate-400 font-bold uppercase">Hesap Açılış Tarihi</p>
+                    <p className="font-semibold">{profil?.KayitTarihi}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 border border-slate-200 dark:border-slate-700 md:col-span-2">
+              <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-6 flex items-center gap-2">
+                <KeyIcon className="w-5 h-5 text-amber-500" /> Şifre Güncelleme
+              </h3>
+
+              {mesaj.metin && (
+                <div className={`p-4 rounded-xl mb-6 font-semibold flex items-center gap-2 border ${
+                  mesaj.tip === 'hata' 
+                    ? 'bg-red-50 text-red-600 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800' 
+                    : 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800'
+                }`}>
+                  {mesaj.tip === 'hata' ? <XCircleIcon className="w-5 h-5" /> : <CheckCircleIcon className="w-5 h-5" />}
+                  {mesaj.metin}
+                </div>
+              )}
+
+              <form onSubmit={sifreGuncelle} className="space-y-5">
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 dark:text-slate-200 mb-1">Mevcut Şifre</label>
+                  <div className="relative">
+                    <LockClosedIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                    <input type="password" value={eskiSifre} onChange={(e) => setEskiSifre(e.target.value)} required placeholder="Mevcut şifrenizi girin" className="w-full pl-10 pr-4 py-3 rounded-lg border dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 outline-none transition-all" />
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 dark:text-slate-200 mb-1">Yeni Şifre</label>
+                    <div className="relative">
+                      <KeyIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                      <input type="password" value={yeniSifre} onChange={(e) => setYeniSifre(e.target.value)} required placeholder="En az 6 karakter" className="w-full pl-10 pr-4 py-3 rounded-lg border dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 outline-none transition-all" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 dark:text-slate-200 mb-1">Yeni Şifre (Tekrar)</label>
+                    <div className="relative">
+                      <KeyIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                      <input type="password" value={yeniSifreTekrar} onChange={(e) => setYeniSifreTekrar(e.target.value)} required placeholder="Yeni şifreyi doğrulayın" className="w-full pl-10 pr-4 py-3 rounded-lg border dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 outline-none transition-all" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-slate-100 dark:border-slate-700 flex justify-end">
+                  <button type="submit" disabled={islemYapiliyor} className="bg-blue-600 hover:bg-blue-700 disabled:opacity-70 text-white font-bold py-3 px-8 rounded-lg shadow-md transition-transform hover:-translate-y-0.5">
+                    {islemYapiliyor ? 'Güncelleniyor...' : 'Şifreyi Güncelle'}
+                  </button>
+                </div>
+              </form>
+            </div>
+
+          </div>
         )}
       </div>
     </div>
@@ -656,7 +826,6 @@ export default function App() {
     }
   };
 
-  // Yeni Abonelik Ekleme İsteği
   const yeniAboneEkle = async (e) => {
     e.preventDefault();
     const temizPlaka = yeniAbonePlaka.trim().toUpperCase();
@@ -681,7 +850,7 @@ export default function App() {
         setYeniAboneAd('');
         setYeniAboneTel('');
         setAboneEkleHata('');
-        durumuVeIstatistigiGetir(); // Listeyi yenile
+        durumuVeIstatistigiGetir();
       } else {
         setAboneEkleHata(data.mesaj);
       }
@@ -714,7 +883,6 @@ export default function App() {
       let gecmis = [];
       if (resGecmis.ok) gecmis = await resGecmis.json();
 
-      // Aboneleri de Çek (VIP Rozetleri için)
       const resAboneler = await fetch(`http://127.0.0.1:8080/api/aboneler?t=${zamanDamgasi}`, { cache: 'no-store' });
       if (resAboneler.ok) {
         setAboneler(await resAboneler.json());
@@ -851,15 +1019,12 @@ export default function App() {
   };
 
   const anlikUcretHesapla = (dakika, plaka) => {
-    // 1. Abonelik Kontrolü
     const abone = aboneler.find(a => a.Plaka === plaka);
     if (abone) {
-        // Aboneliğin süresi geçmiş mi kontrol et
         const bitisTarihi = new Date(abone.Bitis);
         if (bitisTarihi >= suAn) {
-            return 0; // Aboneliği devam ediyor, ücret 0
+            return 0;
         }
-        // Eğer içerideyken süresi bitmişse sadece aradaki fark hesaplanır (backend'de yapılıyor ama ekranda tahmini göstermek istersen tam mantık gerekir. Şimdilik abone ise 0 gösterelim)
     }
 
     if (!fiyatlandirma) return 0;
@@ -927,6 +1092,10 @@ export default function App() {
     return <ReportsPage geriDon={() => setGorunum('panel')} />;
   }
 
+  if (gorunum === 'profil') {
+    return <ProfilPage geriDon={() => setGorunum('panel')} aktifKullanici={aktifKullanici} />;
+  }
+
   const dolulukYuzdesi = istatistikler.ToplamKapasite > 0 ? (istatistikler.DoluAracSayisi / istatistikler.ToplamKapasite) * 100 : 0;
   const renkSinifiDonut = dolulukYuzdesi >= 80 ? 'text-red-500' : dolulukYuzdesi >= 50 ? 'text-orange-500' : 'text-blue-500';
 
@@ -945,6 +1114,12 @@ export default function App() {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <button 
+              onClick={() => setGorunum('profil')} 
+              className="bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 font-bold py-2 px-4 rounded-lg transition-colors flex items-center gap-2 shadow-sm border-2 border-slate-200 dark:border-slate-600"
+            >
+              <UserCircleIcon className="w-5 h-5" /> <span className="hidden sm:inline">Profil</span>
+            </button>
             <button
               onClick={karanlikModuDegistir}
               className="bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 font-bold p-2.5 rounded-lg transition-colors shadow-sm border-2 border-slate-200 dark:border-slate-600"

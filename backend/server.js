@@ -323,6 +323,60 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
+// --- KULLANICI PROFİL BİLGİLERİ GETİR ---
+app.get('/api/kullanici/profil', async (req, res) => {
+    const { kullaniciAdi } = req.query;
+    try {
+        const pool = await poolPromise;
+        // Kullanicilar tablosunda Rol ve OlusturulmaTarihi kolonları olduğunu varsayıyoruz.
+        // Eğer bu kolonlar yoksa, hata vermemesi için SQL sorgusunda ISNULL ile geçici değerler atadık.
+        const sorgu = await pool.request()
+            .input('kullaniciAdi', sql.NVarChar, kullaniciAdi)
+            .query(`
+                SELECT 
+                    KullaniciAdi, 
+                    ISNULL(Rol, 'Yönetici') AS Rol, 
+                    ISNULL(CONVERT(varchar(10), OlusturulmaTarihi, 104), '01.01.2024') AS KayitTarihi 
+                FROM Kullanicilar 
+                WHERE KullaniciAdi = @kullaniciAdi
+            `);
+
+        if (sorgu.recordset.length > 0) {
+            res.json({ durum: 'BASARILI', kullanici: sorgu.recordset[0] });
+        } else {
+            res.status(404).json({ durum: 'HATA', mesaj: 'Kullanıcı bulunamadı.' });
+        }
+    } catch (err) {
+        res.status(500).json({ durum: 'HATA', mesaj: 'Profil bilgileri getirilemedi', detay: err.message });
+    }
+});
+
+// --- ŞİFRE GÜNCELLEME ---
+app.put('/api/kullanici/sifre', async (req, res) => {
+    const { kullaniciAdi, eskiSifre, yeniSifre } = req.body;
+    try {
+        const pool = await poolPromise;
+        
+        const kontrol = await pool.request()
+            .input('kullaniciAdi', sql.NVarChar, kullaniciAdi)
+            .input('eskiSifre', sql.NVarChar, eskiSifre)
+            .query('SELECT * FROM Kullanicilar WHERE KullaniciAdi = @kullaniciAdi AND SifreHash = @eskiSifre');
+
+        if (kontrol.recordset.length === 0) {
+            return res.status(400).json({ durum: 'HATA', mesaj: 'Mevcut şifreniz hatalı!' });
+        }
+
+        await pool.request()
+            .input('kullaniciAdi', sql.NVarChar, kullaniciAdi)
+            .input('yeniSifre', sql.NVarChar, yeniSifre)
+            .query('UPDATE Kullanicilar SET SifreHash = @yeniSifre WHERE KullaniciAdi = @kullaniciAdi');
+
+        res.json({ durum: 'BASARILI', mesaj: 'Şifreniz başarıyla güncellendi.' });
+    } catch (err) {
+        res.status(500).json({ durum: 'HATA', mesaj: 'Şifre güncellenirken hata oluştu', detay: err.message });
+    }
+});
+
 // ==========================================================
 // ============  RAPORLAMA (FİNANSAL ANALİZ) API'LERİ  ======
 // ==========================================================
