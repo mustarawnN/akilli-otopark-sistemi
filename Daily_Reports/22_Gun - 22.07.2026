@@ -1,0 +1,22 @@
+📖 Geliştirme Günlüğü
+🗓️ Tarih: 22 Temmuz 2026
+
+Bugün yönetim paneline kullanıcı deneyimini (UX) ve hesap güvenliğini merkeze alan kapsamlı bir profil sistemi entegre edildi. 
+🎯 Aşama 1: Profil Sayfası ve Güvenlik Altyapısı
+Yöneticilerin kendi hesap detaylarını görebileceği ve güvenlik ayarlarını yapabileceği izole bir sayfa oluşturuldu.
+
+Frontend (App.jsx):
+
+Mevcut modern tasarıma ve karanlık mod (dark mode) temasına tamamen sadık kalarak yeni bir ProfilPage bileşeni inşa edildi.
+
+Kullanıcının rolünü (Admin vb.) ve hesap açılış tarihini gösteren statik bir bilgi kartı eklendi.
+
+Mevcut şifre doğrulama mekanizmasıyla çalışan, güvenli bir "Şifre Güncelleme" formu tasarlandı. Form içi validasyonlar (şifre uyuşmazlığı, minimum karakter vb.) eklendi.
+
+Ana panelin üst barına (Header) Profil sayfasına geçişi sağlayan yönlendirme butonu eklendi.
+
+Backend (server.js):
+
+Veritabanından kullanıcı detaylarını çeken GET /api/kullanici/profil uç noktası (endpoint) yazıldı.
+
+Veritabanında eski şifrenin hash kontrolünü yaparak yeni şifreyi kaydeden PUT /api/kullanici/sifre uç noktası eklendi.
