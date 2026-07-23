@@ -1,0 +1,17 @@
+📖 Geliştirme Günlüğü
+🗓️ Tarih: 23 Temmuz 2026
+🚗 Proje: Akıllı Otopark Sistemi
+
+🎨 Aşama 2: UX İyileştirmeleri - Avatar ve Kişisel Notlar
+Profil sayfası sadece bir ayar sayfası olmaktan çıkarılıp, görevlinin mesaisini kolaylaştıracak operasyonel bir merkeze dönüştürüldü.
+
+Dinamik Avatar Entegrasyonu:
+
+Üst bardaki ve profil sayfasındaki standart ikonlar kaldırılarak yerine kullanıcının adından (örneğin Mustafa Selvitopu için "MS") 
+otomatik baş harf üreten şık, gradient arka planlı bir Dinamik Avatar bileşeni eklendi.
+
+Kişisel Notlar (Sticky Note) Özelliği:
+
+Profil sayfasına, görevlinin araçlar veya vardiyası hakkında hızlıca not alabileceği bir metin alanı eklendi.
+
+Notlar veritabanını yormamak adına direkt olarak tarayıcının localStorage API'sine bağlandı. Her kullanıcının kendi adına özel bir anahtarla (örn: muspark_not_KullaniciAdi) cihazda tutulması ve sayfa yenilense dahi kaybolmaması sağlandı.
