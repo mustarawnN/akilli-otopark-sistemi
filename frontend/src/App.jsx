@@ -30,7 +30,10 @@ import {
   ShieldCheckIcon,
   CalendarDaysIcon,
   LockClosedIcon,
-  KeyIcon
+  KeyIcon,
+  EyeIcon,
+  EyeSlashIcon,
+  ArrowPathIcon
 } from '@heroicons/react/24/solid';
 import musparkLogo from './assets/musparklogo.png';
 
@@ -610,6 +613,10 @@ export default function App() {
   const [loginHata, setLoginHata] = useState('');
   const [aktifKullanici, setAktifKullanici] = useState('');
   
+  // Yeni eklenen state'ler (Login Ekranı için)
+  const [girisYapiliyor, setGirisYapiliyor] = useState(false);
+  const [sifreGoster, setSifreGoster] = useState(false);
+
   const [seciliParkYeri, setSeciliParkYeri] = useState(null);
 
   const [aracGirisModalAcik, setAracGirisModalAcik] = useState(false);
@@ -804,6 +811,7 @@ export default function App() {
 
   const girisYap = async (e) => {
     e.preventDefault();
+    setGirisYapiliyor(true); // Yükleniyor animasyonu başlar
     try {
       const res = await fetch('http://127.0.0.1:8080/api/login', {
         method: 'POST',
@@ -812,15 +820,23 @@ export default function App() {
       });
       const data = await res.json();
 
-      if (res.ok && data.durum === 'BASARILI') {
-        setIsLoggedIn(true);
-        setAktifKullanici(data.kullanici);
-        setLoginHata('');
-      } else {
-        setLoginHata(data.mesaj);
-      }
+      // Animasyonu gözle görebilmek için 800 milisaniye (0.8 saniye) bekletiyoruz
+      setTimeout(() => {
+        if (res.ok && data.durum === 'BASARILI') {
+          setIsLoggedIn(true);
+          setAktifKullanici(data.kullanici);
+          setLoginHata('');
+        } else {
+          setLoginHata(data.mesaj);
+        }
+        setGirisYapiliyor(false); // İşlem bitti, animasyon durur
+      }, 800); 
+
     } catch (error) {
-      setLoginHata('Sunucuya bağlanılamadı.');
+      setTimeout(() => {
+        setLoginHata('Sunucuya bağlanılamadı.');
+        setGirisYapiliyor(false);
+      }, 800);
     }
   };
 
@@ -1112,18 +1128,57 @@ export default function App() {
           <form onSubmit={girisYap} className="space-y-6">
             <div>
               <label className="block text-sm font-bold text-slate-700 dark:text-slate-200 mb-1">Kullanıcı Adı</label>
-              <input type="text" className="w-full px-4 py-3 rounded-lg border dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 focus:ring-2 focus:ring-blue-500" value={kullaniciAdi} onChange={(e) => setKullaniciAdi(e.target.value)} required />
+              <div className="relative">
+                <UserCircleIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                <input 
+                  type="text" 
+                  className="w-full pl-10 pr-4 py-3 rounded-lg border dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 outline-none transition-all" 
+                  value={kullaniciAdi} 
+                  onChange={(e) => setKullaniciAdi(e.target.value)} 
+                  placeholder="Kullanıcı adınızı girin"
+                  required 
+                />
+              </div>
             </div>
             <div>
               <label className="block text-sm font-bold text-slate-700 dark:text-slate-200 mb-1">Şifre</label>
-              <input type="password" className="w-full px-4 py-3 rounded-lg border dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 focus:ring-2 focus:ring-blue-500" value={sifre} onChange={(e) => setSifre(e.target.value)} required />
+              <div className="relative">
+                <LockClosedIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                <input 
+                  type={sifreGoster ? "text" : "password"} 
+                  className="w-full pl-10 pr-10 py-3 rounded-lg border dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 outline-none transition-all" 
+                  value={sifre} 
+                  onChange={(e) => setSifre(e.target.value)} 
+                  placeholder="Şifrenizi girin"
+                  required 
+                />
+                <button 
+                  type="button" 
+                  onClick={() => setSifreGoster(!sifreGoster)} 
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                >
+                  {sifreGoster ? <EyeSlashIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}
+                </button>
+              </div>
             </div>
             {loginHata && (
               <div className="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 p-3 rounded-lg text-sm font-semibold text-center border dark:border-red-800 flex items-center justify-center gap-2">
                 <XCircleIcon className="w-5 h-5" /> {loginHata}
               </div>
             )}
-            <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg shadow-md transition-colors">Giriş Yap</button>
+            <button 
+              type="submit" 
+              disabled={girisYapiliyor} 
+              className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-70 disabled:cursor-not-allowed text-white font-bold py-3 rounded-lg shadow-md transition-colors flex items-center justify-center gap-2"
+            >
+              {girisYapiliyor ? (
+                <>
+                  <ArrowPathIcon className="w-5 h-5 animate-spin" /> Giriş Yapılıyor...
+                </>
+              ) : (
+                'Giriş Yap'
+              )}
+            </button>
           </form>
         </div>
       </div>
