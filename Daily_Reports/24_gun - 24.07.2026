@@ -1,0 +1,17 @@
+📅 Günlük Geliştirme Raporu - 24 Temmuz 2026
+🚀 Yapılan Geliştirmeler (Login UX/UI İyileştirmeleri)
+
+Bugün, MusPark Otopark Yönetim Sistemi'nin giriş (login) ekranında kullanıcı deneyimini (UX) ve görsel arayüzü (UI) artırmaya yönelik modernizasyon çalışmaları yapılmıştır.
+
+🔐 Şifre Görünürlüğü (Password Visibility): Kullanıcıların şifrelerini girerken doğruluğunu teyit edebilmeleri için input alanına interaktif 
+"Göster/Gizle" (Eye/EyeSlash) butonu eklendi.
+
+🎨 İkon Entegrasyonu: Daha profesyonel ve anlaşılır bir arayüz için Kullanıcı Adı ve Şifre giriş alanlarına (input) Heroicons kütüphanesinden 
+yerel ikonlar eklendi.
+
+⏳ Durum (State) Geribildirimi: Kullanıcı "Giriş Yap" butonuna tıkladığında, arka plandaki işlem bitene kadar butonun devre dışı kalması 
+sağlandı ve buton içerisine dönen bir yükleniyor animasyonu (spinner) eklendi.
+
+🌐 Ağ Gecikmesi Simülasyonu: Geliştirme ortamında (localhost) sunucu çok hızlı yanıt verdiği için,
+gerçek dünya senaryolarını (network latency) simüle etmek amacıyla login fonksiyonuna setTimeout ile yapay bir gecikme eklendi.
+Bu sayede loading animasyonları başarıyla test edildi.
